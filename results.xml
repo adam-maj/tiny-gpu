@@ -1,0 +1,6 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1712903762" />
+    <testcase name="test" classname="test.test_memory" file="/Users/adam/Documents/chips/tiny-gpu/test/test_memory.py" lineno="15" time="0.0007610321044921875" sim_time_ns="50001.0" ratio_time="65701564.631578945" />
+  </testsuite>
+</testsuites>
