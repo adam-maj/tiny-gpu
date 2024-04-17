@@ -2,23 +2,26 @@
 `timescale 1ns/1ns
 
 module registers #(
-    parameter BLOCK_ID,
-    parameter THREAD_ID,
+    parameter BLOCK_ID = 0,
+    parameter THREAD_ID = 0
 ) (
     input wire clk,
     input wire reset,
     input wire [7:0] block_dim,
 
+    input wire [3:0] decoded_rd_address,
+    input wire [3:0] decoded_rs_address,
+    input wire [3:0] decoded_rt_address,
+    input wire decoded_reg_write_enable,
+
     input wire [7:0] rd,
     output wire [7:0] rs,
-    output wire [7:0] rt,
-
-    decoded_instruction_if.consumer decoded_instruction,
+    output wire [7:0] rt
 );
     reg [7:0] registers[0:15];
 
-    assign rs = registers[decoded_instruction.rs_address];
-    assign rt = registers[decoded_instruction.rt_address];
+    assign rs = registers[decoded_rs_address];
+    assign rt = registers[decoded_rt_address];
 
     always @(posedge clk) begin
         if (reset) begin
@@ -41,14 +44,14 @@ module registers #(
             registers[14] <= block_dim;
             registers[15] <= THREAD_ID;
         end else begin 
-            if (decoded_instruction.reg_write_enable && rd_address < 13) begin
+            if (decoded_reg_write_enable && decoded_rd_address < 13) begin
                 // Only allow writing to R0 - R12
-                registers[decoded_instruction.rd_address] <= rs;
+                registers[decoded_rd_address] <= rd;
             end
 
-            if (block_dim != registers[14]) begin 
-                register[14] <= block_dim;
-            end
+        if (block_dim != registers[14]) begin
+            registers[14] <= block_dim;
+        end
         end
     end
 endmodule

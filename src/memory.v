@@ -1,47 +1,19 @@
 `default_nettype none
 `timescale 1ns/1ns
 
-interface memory_if;
-    reg mem_read_valid,
-    reg [7:0] mem_read_address,
-    wire mem_read_ready,
-    wire [15:0] mem_read_data,
-
-    reg mem_write_valid,
-    reg [7:0] mem_write_address,
-    reg [15:0] mem_write_data,
-    wire mem_write_ready
-
-    modport memory (
-        input mem_read_valid,
-        input mem_read_address,
-        output mem_read_ready,
-        output mem_read_data,
-
-        input mem_write_valid,
-        input mem_write_address,
-        input mem_write_data,
-        output mem_write_ready
-    );
-
-    modport consumer (
-        output mem_read_valid,
-        output mem_read_address,
-        input mem_read_ready,
-        input mem_read_data,
-
-        output mem_write_valid,
-        output mem_write_address,
-        output mem_write_data,
-        input mem_write_ready
-    )
-endinterface
-
 module memory (
     input wire clk,
     input wire reset,
 
-    memory_if.memory memory_control
+    input wire mem_read_valid,
+    input wire [7:0] mem_read_address,
+    output reg mem_read_ready,
+    output reg [15:0] mem_read_data,
+
+    input wire mem_write_valid,
+    input wire [7:0] mem_write_address,
+    input wire [15:0] mem_write_data,
+    output reg mem_write_ready
 );
     localparam MEMORY_SIZE = 256;
     localparam DRAWER_SIZE = 16;
@@ -50,72 +22,75 @@ module memory (
     localparam LATENCY = 3;
     localparam IDLE = 2'b00, WAITING = 2'b10, READY = 2'b11;
 
-    reg [1:0] read_state = IDLE;
-    reg [1:0] read_latency = 0;
-    reg [7:0] mem_read_address;
+    reg [1:0] read_state_reg = IDLE;
+    reg [1:0] read_latency_reg = 0;
+    reg [7:0] mem_read_address_reg;
 
-    reg [1:0] write_state = IDLE;
-    reg [1:0] write_latency = 0;
-    reg [7:0] mem_write_address;
-    reg [15:0] mem_write_data;
+    reg [1:0] write_state_reg = IDLE;
+    reg [1:0] write_latency_reg = 0;
+    reg [7:0] mem_write_address_reg;
+    reg [15:0] mem_write_data_reg;
 
     always @(posedge clk) begin
         if (reset) begin
-            memory_control.mem_read_ready <= 0;
-            memory_control.mem_write_ready <= 0;
-            read_state <= 0;
-            write_state <= 0;
-            
-            read_latency <= 0;
-            write_latency <= 0;
+            mem_read_ready <= 0;
+            mem_write_ready <= 0;
+            read_state_reg <= 0;
+            write_state_reg <= 0;
+            read_latency_reg <= 0;
+            write_latency_reg <= 0;
+
+            for (int i = 0; i < MEMORY_SIZE; i = i + 1) begin
+                memory[i] <= 16'b0;
+            end
         end else begin
-            case (read_state)
+            case (read_state_reg)
                 IDLE: begin
-                    if (memory_control.mem_read_valid) begin
-                        mem_read_address <= memory_control.mem_read_address;
-                        read_state <= WAITING;
+                    if (mem_read_valid) begin
+                        mem_read_address_reg <= mem_read_address;
+                        read_state_reg <= WAITING;
                     end
                 end
                 WAITING: begin
-                    if (read_latency < LATENCY) begin
-                        read_latency <= read_latency + 1;
+                    if (read_latency_reg < LATENCY) begin
+                        read_latency_reg <= read_latency_reg + 1;
                     end else begin
-                        memory_control.mem_read_data <= memory[mem_read_address];
-                        memory_control.mem_read_ready <= 1;
-                        read_state <= READY;
+                        mem_read_data <= memory[mem_read_address_reg];
+                        mem_read_ready <= 1;
+                        read_state_reg <= READY;
                     end
                 end
                 READY: begin
-                    if (!memory_control.mem_read_valid) begin
-                        memory_control.mem_read_ready <= 0;
-                        read_latency <= 0;
-                        read_state <= IDLE;
+                    if (!mem_read_valid) begin
+                        mem_read_ready <= 0;
+                        read_latency_reg <= 0;
+                        read_state_reg <= IDLE;
                     end
                 end
             endcase
 
-            case (write_state)
+            case (write_state_reg)
                 IDLE: begin
-                    if (memory_control.mem_write_valid) begin
-                        mem_write_address <= memory_control.mem_write_address;
-                        mem_write_data <= memory_control.mem_write_data;
-                        write_state <= WAITING;
+                    if (mem_write_valid) begin
+                        mem_write_address_reg <= mem_write_address;
+                        mem_write_data_reg <= mem_write_data;
+                        write_state_reg <= WAITING;
                     end
                 end
                 WAITING: begin
-                    if (write_latency < LATENCY) begin
-                        write_latency <= write_latency + 1;
+                    if (write_latency_reg < LATENCY) begin
+                        write_latency_reg <= write_latency_reg + 1;
                     end else begin
-                        memory[mem_write_address] <= mem_write_data;
-                        memory_control.mem_write_ready <= 1;
-                        write_state <= READY;
+                        memory[mem_write_address_reg] <= mem_write_data_reg;
+                        mem_write_ready <= 1;
+                        write_state_reg <= READY;
                     end
                 end
                 READY: begin
                     if (!mem_write_valid) begin 
-                        memory_control.mem_write_ready <= 0;
-                        write_latency <= 0;
-                        write_state <= IDLE;
+                        mem_write_ready <= 0;
+                        write_latency_reg <= 0;
+                        write_state_reg <= IDLE;
                     end
                 end
             endcase

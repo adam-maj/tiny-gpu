@@ -1,155 +1,83 @@
 `default_nettype none
 `timescale 1ns/1ns
 
-interface decoded_instruction_if;
-    // Values
-    wire [3:0] rd_address;
-    wire [3:0] rs_address;
-    wire [3:0] rt_address;
-    wire [2:0] nzp;
-    wire [7:0] immediate;
-    
-    // Signals
-    wire reg_write_enable;           // Enable writing to a register
-    wire mem_read_enable;            // Enable reading from memory
-    wire mem_write_enable;           // Enable writing to memory
-    wire nzp_write_enable;           // Enable writing to NZP register
-    wire [1:0] reg_input_mux;        // Select input to register
-    wire [1:0] alu_arithmetic_mux;   // Select arithmetic operation
-    wire alu_output_mux;             // Select operation in ALU
-    wire pc_mux;                     // Select source of next PC
-
-    // Done
-    wire done;
-
-    modport decoder (
-        output rd_address,
-        output rs_address,
-        output rt_address,
-        output nzp,
-        output immediate,
-        output reg_write_enable,
-        output mem_read_enable,
-        output mem_write_enable,
-        output nzp_write_enable,
-        output reg_input_mux,
-        output alu_arithmetic_mux,
-        output alu_output_mux,
-        output pc_mux,
-        output done
-    );
-
-    modport consumer (
-        input rd_address,
-        input rs_address,
-        input rt_address,
-        input nzp,
-        input immediate,
-        input reg_write_enable,
-        input mem_read_enable,
-        input mem_write_enable,
-        input nzp_write_enable,
-        input reg_input_mux,
-        input alu_arithmetic_mux,
-        input alu_output_mux,
-        input pc_mux,
-        input done
-    );
-endinterface
-
 module decoder (
     input wire clk,
     input wire reset,
     input wire [15:0] instruction,
-    decoded_instruction_if.decoder decoded_instruction
+    
+    // Values
+    output wire [3:0] decoded_rd_address,
+    output wire [3:0] decoded_rs_address,
+    output wire [3:0] decoded_rt_address,
+    output wire [2:0] decoded_nzp,
+    output wire [7:0] decoded_immediate,
+    
+    // Signals
+    output wire decoded_reg_write_enable,           // Enable writing to a register
+    output wire decoded_mem_read_enable,            // Enable reading from memory
+    output wire decoded_mem_write_enable,           // Enable writing to memory
+    output wire decoded_nzp_write_enable,           // Enable writing to NZP register
+    output wire [1:0] decoded_reg_input_mux,        // Select input to register
+    output wire [1:0] decoded_alu_arithmetic_mux,   // Select arithmetic operation
+    output wire decoded_alu_output_mux,             // Select operation in ALU
+    
+    output wire decoded_pc_mux,                     // Select source of next PC
+
+    // Done
+    output wire decoded_done
 );
+    localparam NOP = 4'b0000,
+        BRnzp = 4'b0001,
+        CMP = 4'b0010,
+        ADD = 4'b0011,
+        SUB = 4'b0100,
+        MUL = 4'b0101,
+        DIV = 4'b0110,
+        LDR = 4'b0111,
+        STR = 4'b1000,
+        CONST = 4'b1001,
+        RET = 4'b1111;
 
-    assign decoded_instruction.rd_address = instruction[11:8];
-    assign decoded_instruction.rs_address = instruction[7:4];
-    assign decoded_instruction.rt_address = instruction[3:0];
-    assign decoded_instruction.immediate = instruction[7:0];
-    assign decoded_instruction.nzp = instruction[11:9];
+    assign decoded_reg_write_enable = reset 
+        ? 0
+        : ((instruction[15:12] == ADD) 
+            || (instruction[15:12] == SUB) 
+            || (instruction[15:12] == MUL) 
+            || (instruction[15:12] == DIV) 
+            || (instruction[15:12] == CONST));
+    assign decoded_mem_read_enable = reset 
+        ? 0
+        : (instruction[15:12] == LDR);
+    assign decoded_mem_write_enable = reset 
+        ? 0 
+        : (instruction[15:12] == STR);
+    assign decoded_nzp_write_enable = reset 
+        ? 0 
+        : (instruction[15:12] == CMP);
+    assign decoded_reg_input_mux = reset 
+        ? 0 
+        : ((instruction[15:12] == CONST) ? 2'b10 : 2'b00);
+    assign decoded_alu_arithmetic_mux = reset 
+        ? 0 
+        : ((instruction[15:12] == ADD) ? 2'b00 : 
+            (instruction[15:12] == SUB) ? 2'b01 : 
+            (instruction[15:12] == MUL) ? 2'b10 : 
+            (instruction[15:12] == DIV) ? 2'b11 : 0);
+    assign decoded_alu_output_mux = reset 
+        ? 0 
+        : (instruction[15:12] == CMP);
+    assign decoded_pc_mux = reset 
+        ? 0 
+        : (instruction[15:12] == BRnzp);
+    assign decoded_done = reset 
+        ? 0 
+        : (instruction[15:12] == RET);
 
-    // Control signals logic placeholder
-    always @(posedge clk) begin
-        // Reset all control signals on reset
-        if (reset) begin
-            decoded_instruction.reg_write_enable = 0;
-            decoded_instruction.mem_read_enable = 0;
-            decoded_instruction.mem_write_enable = 0;
-            decoded_instruction.nzp_write_enable = 0;
-            decoded_instruction.reg_input_mux = 0;
-            decoded_instruction.alu_op_mux = 0;
-            decoded_instruction.alu_mux = 0;
-            decoded_instruction.pc_mux = 0;
-            decoded_instruction.done = 0;
-        end else begin
-            // TODO: Mem read and write can't reset to 0 every cycle
-            decoded_instruction.reg_write_enable = 0;
-            decoded_instruction.mem_read_enable = 0;
-            decoded_instruction.mem_write_enable = 0;
-            decoded_instruction.nzp_write_enable = 0;
-            decoded_instruction.pc_mux = 0;
-
-            case (instruction[15:12])
-                // NOP
-                4'b0000: ;
-                // BRnzp
-                4'b0001: begin
-                    decoded_instruction.pc_mux = 1;
-                end
-                // CMP
-                4'b0010: begin
-                    decoded_instruction.alu_mux = 1;
-                    decoded_instruction.nzp_write_enable = 1;
-                end
-                // ADD
-                4'b0011: begin
-                    decoded_instruction.alu_arithmetic_mux = 2'b00;
-                    decoded_instruction.alu_mux = 0;
-                    decoded_instruction.reg_input_mux = 2'b00;
-                    decoded_instruction.reg_write_enable = 1;
-                end
-                // SUB
-                4'b0100: begin
-                    decoded_instruction.alu_arithmetic_mux = 2'b01;
-                    decoded_instruction.alu_mux = 0;
-                    decoded_instruction.reg_input_mux = 2'b00;
-                    decoded_instruction.reg_write_enable = 1;
-                end
-                // MUL
-                4'b0101: begin
-                    decoded_instruction.alu_arithmetic_mux = 2'b10;
-                    decoded_instruction.alu_mux = 0;
-                    decoded_instruction.reg_input_mux = 2'b00;
-                    decoded_instruction.reg_write_enable = 1;
-                end
-                // DIV
-                4'b0110: begin
-                    decoded_instruction.alu_arithmetic_mux = 2'b11;
-                    decoded_instruction.alu_mux = 0;
-                    decoded_instruction.reg_input_mux = 2'b00;
-                    decoded_instruction.reg_write_enable = 1;
-                end
-                // LDR
-                4'b0111: begin
-                    decoded_instruction.mem_read_enable = 1;
-                end
-                // STR
-                4'b1000: begin
-                    decoded_instruction.mem_write_enable = 1;
-                end
-                // CONST
-                4'b1001: begin
-                    decoded_instruction.reg_input_mux = 2'b10;
-                    decoded_instruction.reg_write_enable = 1;
-                end
-                // RET
-                4'b1111: begin
-                    decoded_instruction.done = 1;
-                end
-            endcase
-        end
-    end
+    assign decoded_rd_address = instruction[11:8];
+    assign decoded_rs_address = instruction[7:4];
+    assign decoded_rt_address = instruction[3:0];
+    assign decoded_immediate = instruction[7:0];
+    assign decoded_nzp = instruction[11:9];
 
 endmodule

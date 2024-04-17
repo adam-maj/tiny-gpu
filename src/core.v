@@ -94,7 +94,7 @@ module core #(
         .instruction(instruction)
     )
 
-    decoded_instruction_if decoded_instruction;
+    decoded_instruction_if decoded_instruction ();
     decoder decoder_instance (
         .clk(clk),
         .reset(reset),
