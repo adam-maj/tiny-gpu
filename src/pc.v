@@ -5,9 +5,13 @@ module pc (
     input wire clk,
     input wire reset,
 
-    decoded_instruction_if.consumer decoded_instruction,
+    input wire [2:0] decoded_nzp,
+    input wire [7:0] decoded_immediate,
+    input wire decoded_nzp_write_enable,
+    input wire decoded_pc_mux, 
+
     input wire [2:0] nzp_input_data,
-    input wire [7:0] pc,
+    input wire [7:0] current_pc,
     output wire [7:0] next_pc
 );
     reg [2:0] nzp_reg;
@@ -15,17 +19,12 @@ module pc (
     always @(posedge clk) begin
         if (reset) begin
             nzp_reg <= 3'b0;
-        end else if (decoded_instruction.nzp_write_enable) begin
+        end else if (decoded_nzp_write_enable) begin
             nzp_reg <= nzp_input_data;
         end
     end
 
-    always @(*) begin
-        assign next_pc = pc + 1
-        if decoded_instruction.pc_mux == 1 begin
-            if nzp_reg & decoded_instruction.nzp == 3'b0 begin
-                next_pc = decoded_instruction.immediate
-            end
-        end
-    end
+    assign next_pc = (decoded_pc_mux == 1 && ((nzp_reg & decoded_nzp) != 3'b0))
+        ? decoded_immediate 
+        : current_pc + 1;
 endmodule

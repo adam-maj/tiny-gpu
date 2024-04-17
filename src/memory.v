@@ -1,35 +1,37 @@
 `default_nettype none
 `timescale 1ns/1ns
 
-module memory (
+module memory #(
+    parameter ADDR_BITS = 8,
+    parameter DATA_BITS = 16
+) (
     input wire clk,
     input wire reset,
 
     input wire mem_read_valid,
-    input wire [7:0] mem_read_address,
+    input wire [ADDR_BITS-1:0] mem_read_address,
     output reg mem_read_ready,
-    output reg [15:0] mem_read_data,
+    output reg [DATA_BITS-1:0] mem_read_data,
 
     input wire mem_write_valid,
-    input wire [7:0] mem_write_address,
-    input wire [15:0] mem_write_data,
+    input wire [ADDR_BITS-1:0] mem_write_address,
+    input wire [DATA_BITS-1:0] mem_write_data,
     output reg mem_write_ready
 );
-    localparam MEMORY_SIZE = 256;
-    localparam DRAWER_SIZE = 16;
-    reg [15:0] memory[0:MEMORY_SIZE-1];
+    localparam MEMORY_SIZE = 2 ** ADDR_BITS;
+    reg [DATA_BITS-1:0] memory[0:MEMORY_SIZE-1];
 
     localparam LATENCY = 3;
     localparam IDLE = 2'b00, WAITING = 2'b10, READY = 2'b11;
 
     reg [1:0] read_state_reg = IDLE;
     reg [1:0] read_latency_reg = 0;
-    reg [7:0] mem_read_address_reg;
+    reg [ADDR_BITS-1:0] mem_read_address_reg;
 
     reg [1:0] write_state_reg = IDLE;
     reg [1:0] write_latency_reg = 0;
-    reg [7:0] mem_write_address_reg;
-    reg [15:0] mem_write_data_reg;
+    reg [ADDR_BITS-1:0] mem_write_address_reg;
+    reg [DATA_BITS-1:0] mem_write_data_reg;
 
     always @(posedge clk) begin
         if (reset) begin
@@ -41,7 +43,7 @@ module memory (
             write_latency_reg <= 0;
 
             for (int i = 0; i < MEMORY_SIZE; i = i + 1) begin
-                memory[i] <= 16'b0;
+                memory[i] = {DATA_BITS{1'b0}};
             end
         end else begin
             case (read_state_reg)
