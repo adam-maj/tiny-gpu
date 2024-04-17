@@ -11,15 +11,15 @@ module controller #(
     input wire reset,
 
     // LSU Interface
-    input wire [NUM_LSUS-1:0] consumer_read_valid,
-    input wire [ADDR_BITS-1:0] consumer_read_address [NUM_LSUS-1:0],
-    output wire [NUM_LSUS-1:0] consumer_read_ready,
-    output wire [DATA_BITS-1:0] consumer_read_data [NUM_LSUS-1:0],
+    input wire [NUM_CONSUMERS-1:0] consumer_read_valid,
+    input wire [ADDR_BITS-1:0] consumer_read_address [NUM_CONSUMERS-1:0],
+    output wire [NUM_CONSUMERS-1:0] consumer_read_ready,
+    output wire [DATA_BITS-1:0] consumer_read_data [NUM_CONSUMERS-1:0],
 
-    input wire [NUM_LSUS-1:0] consumer_write_valid,
-    input wire [ADDR_BITS-1:0] consumer_write_address [NUM_LSUS-1:0],
-    input wire [DATA_BITS-1:0] consumer_write_data [NUM_LSUS-1:0],
-    output wire [NUM_LSUS-1:0] consumer_write_ready,
+    input wire [NUM_CONSUMERS-1:0] consumer_write_valid,
+    input wire [ADDR_BITS-1:0] consumer_write_address [NUM_CONSUMERS-1:0],
+    input wire [DATA_BITS-1:0] consumer_write_data [NUM_CONSUMERS-1:0],
+    output wire [NUM_CONSUMERS-1:0] consumer_write_ready,
 
     // Memory Interface
     output reg mem_read_valid,
@@ -33,17 +33,17 @@ module controller #(
     input wire mem_write_ready
 );
     // QUEUE
-    reg [NUM_LSUS-1:0] request_queue;
-    reg [NUM_LSUS-1:0] request_pending;
+    reg [NUM_CONSUMERS-1:0] request_queue;
+    reg [NUM_CONSUMERS-1:0] request_pending;
 
     // STATE
-    localparam IDLE = 2'b00, WAITING 2'b01;
+    localparam IDLE = 2'b00, WAITING = 2'b01;
     reg [1:0] state = IDLE;
-    reg [$clog2(NUM_LSUS)-1:0] current_lsu;
+    reg [$clog2(NUM_CONSUMERS)-1:0] current_lsu;
 
     // RESPONSES
-    reg [NUM_LSUS-1:0] response_valid;
-    reg [DATA_BITS-1:0] response_data [NUM_LSUS-1:0];
+    reg [NUM_CONSUMERS-1:0] response_valid;
+    reg [DATA_BITS-1:0] response_data [NUM_CONSUMERS-1:0];
 
     // Keep queue and pending status up to date
     always @(*) begin
@@ -66,7 +66,7 @@ module controller #(
             request_pending <= 0;
             response_valid <= 0;
 
-            for (int i = 0; i < NUM_LSUS; i++) begin
+            for (int i = 0; i < NUM_CONSUMERS; i++) begin
                 response_data[i] <= 0;
             end
         end else begin
@@ -75,7 +75,7 @@ module controller #(
                     if (request_pending[current_lsu]) begin 
                         state <= WAITING;
                     end else begin 
-                        current_lsu <= (current_lsu == NUM_LSUS-1) ? 0 : current_lsu + 1;
+                        current_lsu <= (current_lsu == NUM_CONSUMERS-1) ? 0 : current_lsu + 1;
                     end
                 end
                 WAITING: begin
@@ -109,7 +109,7 @@ module controller #(
     // Communicate back with LSUs
     genvar i;
     generate
-        for (i = 0; i < NUM_LSUS; i++) begin
+        for (i = 0; i < NUM_CONSUMERS; i++) begin
             assign consumer_read_ready[i] = response_valid[i] & consumer_read_valid[i];
             assign consumer_write_ready[i] = response_valid[i] & consumer_write_valid[i];
             assign consumer_read_data[i] = response_data[i];

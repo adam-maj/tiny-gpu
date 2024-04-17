@@ -11,5 +11,10 @@ test_core:
 	mkdir build/
 	iverilog -o build/sim.vvp -s core -g2012 src/core.v src/alu.v src/decoder.v src/fetcher.v src/lsu.v src/memory.v src/pc.v src/registers.v src/warps.v
 
+test_gpu:
+	rm -rf build/
+	mkdir build/
+	iverilog -o build/sim.vvp -s gpu -g2012 src/*
+
 show_%: %.vcd %.gtkw
 	gtkwave $^

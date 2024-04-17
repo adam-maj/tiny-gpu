@@ -2,11 +2,13 @@
 `timescale 1ns/1ns
 
 module core #(
-    parameter ADDR_BITS = 8,
-    parameter DATA_BITS = 16,
-    parameter BLOCK_ID = 0,
-    parameter WARP_SIZE = 4,
-    parameter MAX_WARPS = 4
+    parameter DATA_MEM_ADDR_BITS = 8,
+    parameter DATA_MEM_DATA_BITS = 8,
+    parameter PROGRAM_MEM_ADDR_BITS = 8,
+    parameter PROGRAM_MEM_DATA_BITS = 16,
+    parameter MAX_WARPS_PER_CORE = 4,
+    parameter THREADS_PER_WARP = 4,
+    parameter CORE_ID = 0
 ) (
     input wire clk,
     input wire reset,
@@ -17,37 +19,37 @@ module core #(
     input wire [7:0] block_dim,
     input wire [7:0] thread_count,
 
-    // DATA MEMORY
-    output reg data_mem_read_valid,
-    output reg [7:0] data_mem_read_address,
-    input reg data_mem_read_ready,
-    input reg [7:0] data_mem_read_data,
-
-    output reg data_mem_write_valid,
-    output reg [7:0] data_mem_write_address,
-    output reg [7:0] data_mem_write_data,
-    input reg data_mem_write_ready,
-
     // PROGRAM MEMORY
     output reg program_mem_read_valid,
-    output reg [7:0] program_mem_read_address,
+    output reg [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_read_address,
     input reg program_mem_read_ready,
-    input reg [7:0] program_mem_read_data,
+    input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
 
     output reg program_mem_write_valid,
-    output reg [7:0] program_mem_write_address,
-    output reg [7:0] program_mem_write_data,
-    input reg program_mem_write_ready
+    output reg [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_write_address,
+    output reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_write_data,
+    input reg program_mem_write_ready,
+
+    // DATA MEMORY
+    output reg [THREADS_PER_WARP-1:0] data_mem_read_valid,
+    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_WARP-1:0],
+    input reg [THREADS_PER_WARP-1:0] data_mem_read_ready,
+    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_WARP-1:0],
+
+    output reg [THREADS_PER_WARP-1:0] data_mem_write_valid,
+    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_WARP-1:0],
+    output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_WARP-1:0],
+    input reg [THREADS_PER_WARP-1:0] data_mem_write_ready
 );
     // STATE
     localparam IDLE = 2'b00, FETCHING = 2'b01, PROCESSING = 2'b10, DONE = 2'b11; 
     reg [1:0] state = IDLE;
 
     // WARPS
-    wire warp_count = (thread_count + WARP_SIZE - 1) / WARP_SIZE;
-    reg [7:0] warp_pc [0:MAX_WARPS-1];
-    reg warp_done [0:MAX_WARPS-1];
-    reg [7:0] current_warp_id = 0;
+    wire warp_count = (thread_count + THREADS_PER_WARP - 1) / THREADS_PER_WARP;
+    reg [7:0] warp_pc [0:MAX_WARPS_PER_CORE-1];
+    reg warp_done [0:MAX_WARPS_PER_CORE-1];
+    reg [7:0] current_warp_id;
 
     // INSTRUCTION
     wire [15:0] instruction;
@@ -70,30 +72,13 @@ module core #(
     wire decoded_done;
 
     // EXECUTION
-    wire [7:0] rs[WARP_SIZE-1:0];
-    wire [7:0] rt[WARP_SIZE-1:0];
-    wire [7:0] rd[WARP_SIZE-1:0];
-    wire [7:0] alu_out[WARP_SIZE-1:0];
-    wire [WARP_SIZE-1:0] lsu_state;
-    wire [7:0] lsu_out[WARP_SIZE-1:0];
-    wire [7:0] next_pc[WARP_SIZE-1:0];
-
-    controller memory_controller (
-        .clk(clk),
-        .reset(reset),
-
-        // LSUs
-
-        // Data Memory
-        .mem_read_valid(data_mem_read_valid),
-        .mem_read_address(data_mem_read_address),
-        .mem_read_ready(data_mem_read_ready),
-        .mem_read_data(data_mem_read_data),
-        .mem_write_valid(data_mem_write_valid),
-        .mem_write_address(data_mem_write_address),
-        .mem_write_data(data_mem_write_data),
-        .mem_write_ready(data_mem_write_ready)
-    );
+    wire [7:0] rs[THREADS_PER_WARP-1:0];
+    wire [7:0] rt[THREADS_PER_WARP-1:0];
+    wire [7:0] rd[THREADS_PER_WARP-1:0];
+    wire [7:0] alu_out[THREADS_PER_WARP-1:0];
+    wire [THREADS_PER_WARP-1:0] lsu_state;
+    wire [7:0] lsu_out[THREADS_PER_WARP-1:0];
+    wire [7:0] next_pc[THREADS_PER_WARP-1:0];
 
     fetcher fetcher_instance (
         .clk(clk),
@@ -127,8 +112,8 @@ module core #(
     );
 
     warps #(
-        .WARP_SIZE(WARP_SIZE),
-        .MAX_WARPS(MAX_WARPS)
+        .THREADS_PER_WARP(THREADS_PER_WARP),
+        .MAX_WARPS_PER_CORE(MAX_WARPS_PER_CORE)
     ) warp_scheduler (
         .clk(clk),
         .reset(reset),
@@ -144,9 +129,9 @@ module core #(
 
     genvar i;
     generate
-        for (i = 0; i < WARP_SIZE; i = i + 1) begin : threads
+        for (i = 0; i < THREADS_PER_WARP; i = i + 1) begin : threads
             registers #(
-                .BLOCK_ID(BLOCK_ID),
+                .BLOCK_ID(CORE_ID),
                 .THREAD_ID(i)
             ) register_instance (
                 .clk(clk),
@@ -176,14 +161,14 @@ module core #(
                 .reset(reset),
                 .decoded_mem_read_enable(decoded_mem_read_enable),
                 .decoded_mem_write_enable(decoded_mem_write_enable),
-                .mem_read_valid(data_mem_read_valid),
-                .mem_read_address(data_mem_read_address),
-                .mem_read_ready(data_mem_read_ready),
-                .mem_read_data(data_mem_read_data),
-                .mem_write_valid(data_mem_write_valid),
-                .mem_write_address(data_mem_write_address),
-                .mem_write_data(data_mem_write_data),
-                .mem_write_ready(data_mem_write_ready),
+                .mem_read_valid(data_mem_read_valid[i]),
+                .mem_read_address(data_mem_read_address[i]),
+                .mem_read_ready(data_mem_read_ready[i]),
+                .mem_read_data(data_mem_read_data[i]),
+                .mem_write_valid(data_mem_write_valid[i]),
+                .mem_write_address(data_mem_write_address[i]),
+                .mem_write_data(data_mem_write_data[i]),
+                .mem_write_ready(data_mem_write_ready[i]),
                 .rs(rs[i]),
                 .rt(rt[i]),
                 .lsu_state(lsu_state[i]),

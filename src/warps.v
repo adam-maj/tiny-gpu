@@ -2,26 +2,26 @@
 `timescale 1ns/1ns
 
 module warps #(
-    parameter WARP_SIZE = 4,
-    parameter MAX_WARPS = 4
+    parameter THREADS_PER_WARP = 4,
+    parameter MAX_WARPS_PER_CORE = 4
 ) (
     input wire clk,
     input wire reset,
     input wire start,
     input wire instruction_ready,
     input wire decoded_done,
-    input wire [WARP_SIZE-1:0] lsu_state,
+    input wire [THREADS_PER_WARP-1:0] lsu_state,
     input wire [7:0] thread_count,
-    input wire [7:0] next_pc[WARP_SIZE-1:0],
+    input wire [7:0] next_pc[THREADS_PER_WARP-1:0],
     output reg [7:0] current_warp_id,
     output wire done
 );
     localparam IDLE = 2'b00, FETCHING = 2'b01, PROCESSING = 2'b10, DONE = 2'b11;
     reg [1:0] state = IDLE;
     
-    wire [7:0] NUM_WARPS = (thread_count + WARP_SIZE - 1) / WARP_SIZE;
-    reg [7:0] warp_pc [0:MAX_WARPS-1];
-    reg [0:MAX_WARPS-1] warp_done;
+    wire [7:0] NUM_WARPS = (thread_count + THREADS_PER_WARP - 1) / THREADS_PER_WARP;
+    reg [7:0] warp_pc [0:MAX_WARPS_PER_CORE-1];
+    reg [0:MAX_WARPS_PER_CORE-1] warp_done;
 
     assign done = &(warp_done);
 
@@ -30,7 +30,7 @@ module warps #(
             state <= IDLE;
             current_warp_id <= 0; 
 
-            for (int i = 0; i < MAX_WARPS; i++) begin
+            for (int i = 0; i < MAX_WARPS_PER_CORE; i++) begin
                 warp_pc[i] <= 0;
                 warp_done[i] <= 0;
             end
@@ -40,13 +40,13 @@ module warps #(
                     if (start) begin
                         state <= FETCHING;
 
-                        if (NUM_WARPS <= MAX_WARPS) begin 
+                        if (NUM_WARPS <= MAX_WARPS_PER_CORE) begin 
                             for (int i = 0; i < NUM_WARPS; i++) begin
-                                warp_pc[i] <= i * WARP_SIZE;
+                                warp_pc[i] <= i * THREADS_PER_WARP;
                                 warp_done[i] <= 0;
                             end
                         end else begin
-                            $display("ERROR: NUM_WARPS exceeds MAX_WARPS");
+                            $display("ERROR: NUM_WARPS exceeds MAX_WARPS_PER_CORE");
                         end
                     end
                 end
