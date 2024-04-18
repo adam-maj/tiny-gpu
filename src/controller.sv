@@ -36,9 +36,9 @@ module controller #(
     reg [NUM_CONSUMERS-1:0] request_pending;
 
     // STATE
-    localparam IDLE = 2'b00, WAITING = 2'b01;
+    localparam IDLE = 2'b00, WAITING = 2'b01, RELAYING = 2'b10;
     reg [1:0] state = IDLE;
-    reg [$clog2(NUM_CONSUMERS)-1:0] current_lsu;
+    reg [$clog2(NUM_CONSUMERS)-1:0] current_consumer;
 
     // RESPONSES
     reg [NUM_CONSUMERS-1:0] response_valid;
@@ -52,7 +52,7 @@ module controller #(
     // Send requests to memory
     always @(posedge clk) begin
         if (reset) begin
-            current_lsu <= 0;
+            current_consumer <= 0;
             state <= IDLE;
 
             mem_read_valid <= 0;
@@ -68,33 +68,41 @@ module controller #(
         end else begin
             case (state)
                 IDLE: begin
-                    if (request_pending[current_lsu]) begin 
+                    if (request_pending[current_consumer]) begin 
                         state <= WAITING;
                     end else begin 
-                        current_lsu <= (current_lsu == NUM_CONSUMERS-1) ? 0 : current_lsu + 1;
+                        current_consumer <= (current_consumer == NUM_CONSUMERS-1) ? 0 : current_consumer + 1;
                     end
                 end
                 WAITING: begin
-                    if (consumer_read_valid[current_lsu]) begin
+                    if (consumer_read_valid[current_consumer]) begin
                         // Execute pending read request
                         if (mem_read_ready) begin
-                            response_valid[current_lsu] <= 1;
-                            response_data[current_lsu] <= mem_read_data;
+                            mem_read_valid <= 0;
+                            response_valid[current_consumer] <= 1;
+                            response_data[current_consumer] <= mem_read_data;
+                            state <= RELAYING;
                         end else begin 
                             mem_read_valid <= 1;
-                            mem_read_address <= consumer_read_address[current_lsu];
+                            mem_read_address <= consumer_read_address[current_consumer];
                         end
-                    end else if (consumer_write_valid[current_lsu]) begin 
+                    end else if (consumer_write_valid[current_consumer]) begin 
                         // Execute pending write request
                         if (mem_write_ready) begin 
-                            response_valid[current_lsu] <= 1;
+                            mem_write_valid <= 0;
+                            response_valid[current_consumer] <= 1;
+                            state <= RELAYING;
                         end else begin 
                             mem_write_valid <= 1;
-                            mem_write_address <= consumer_write_address[current_lsu];
-                            mem_write_data <= consumer_write_data[current_lsu];
+                            mem_write_address <= consumer_write_address[current_consumer];
+                            mem_write_data <= consumer_write_data[current_consumer];
                         end
-                    end else begin 
-                        // Completed response handshake with LSU
+                    end
+                end
+                RELAYING: begin
+                    // Wait until LSU acknowledges it received data, then reset
+                    if (!request_pending[current_consumer]) begin 
+                        response_valid[current_consumer] <= 0;
                         state <= IDLE;
                     end
                 end

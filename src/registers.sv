@@ -18,7 +18,7 @@ module registers #(
     output wire [7:0] rs,
     output wire [7:0] rt
 );
-    reg [7:0] registers[0:15];
+    reg [7:0] registers[15:0];
 
     assign rs = registers[decoded_rs_address];
     assign rt = registers[decoded_rt_address];
@@ -49,9 +49,7 @@ module registers #(
                 registers[decoded_rd_address] <= rd;
             end
 
-        if (block_dim != registers[14]) begin
             registers[14] <= block_dim;
-        end
         end
     end
 endmodule

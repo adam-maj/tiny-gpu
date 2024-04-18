@@ -14,14 +14,22 @@ class MemoryInterface:
         self.mem_read_address = getattr(dut, f"{name}_mem_read_address")
         self.mem_read_ready = getattr(dut, f"{name}_mem_read_ready")
         self.mem_read_data = getattr(dut, f"{name}_mem_read_data")
-        self.mem_write_valid = getattr(dut, f"{name}_mem_write_valid")
-        self.mem_write_address = getattr(dut, f"{name}_mem_write_address")
-        self.mem_write_data = getattr(dut, f"{name}_mem_write_data")
-        self.mem_write_ready = getattr(dut, f"{name}_mem_write_ready")
 
-    async def run(self):
-        while True:
-            await RisingEdge(self.dut.clk)
+        if name != "program":
+            self.mem_write_valid = getattr(dut, f"{name}_mem_write_valid")
+            self.mem_write_address = getattr(dut, f"{name}_mem_write_address")
+            self.mem_write_data = getattr(dut, f"{name}_mem_write_data")
+            self.mem_write_ready = getattr(dut, f"{name}_mem_write_ready")
+
+    def run(self):
+        if self.mem_read_valid.value == 1:
+            address = int(self.mem_read_address.value)
+            self.mem_read_data.value = self.memory[address]
+            self.mem_read_ready.value = 1
+        else:
+            self.mem_read_ready.value = 0
+
+        if self.name != "program":
             if self.mem_write_valid.value == 1:
                 address = int(self.mem_write_address.value)
                 data = int(self.mem_write_data.value)
@@ -29,13 +37,6 @@ class MemoryInterface:
                 self.mem_write_ready.value = 1
             else:
                 self.mem_write_ready.value = 0
-
-            if self.mem_read_valid.value == 1:
-                address = int(self.mem_read_address.value)
-                self.mem_read_data.value = self.memory[address]
-                self.mem_read_ready.value = 1
-            else:
-                self.mem_read_ready.value = 0
 
     def write_data(self, address, data):
         if address < len(self.memory):
@@ -45,14 +46,14 @@ class MemoryInterface:
         for address, data in enumerate(program):
             self.write_data(address, data)
 
-    def display(self, decimal=True):
+    def display(self, rows, decimal=True):
         print("\n")
         print(self.name.upper())
         print("+" + "-" * (self.addr_bits * 2 + 9) + "+")
         print("| Addr | Data |")
         print("+" + "-" * (self.addr_bits * 2 + 9) + "+")
         for i, data in enumerate(self.memory):
-            if data != 0:
+            if i < rows:
                 if decimal:
                     print(f"| {i:<4} | {data:<4} |")
                 else:
@@ -66,7 +67,7 @@ async def reset(dut):
     dut.reset.value = 0
 
 async def setup(dut):
-    clock = Clock(dut.clk, 10, units="us")
+    clock = Clock(dut.clk, 25, units="us")
     cocotb.start_soon(clock.start())
     await reset(dut)
 
@@ -92,14 +93,14 @@ async def test_matrix_addition_kernel(dut):
 
     # Set threads in the DCR
     dut.device_control_write_enable.value = 1
-    dut.device_control_data.value = 4  # 4 threads
+    dut.device_control_data.value = 8 # 4 threads
     await RisingEdge(dut.clk)
     dut.device_control_write_enable.value = 0
 
     # Load data into data memory
     data_memory = MemoryInterface(dut=dut, addr_bits=8, data_bits=8, name="data")
     matrix_a = [0, 1, 2, 3, 4, 5, 6, 7]
-    matrix_b = [0, 1, 2, 3, 4, 5, 6, 7]
+    matrix_b = [0, 1, 2, 3, 3, 4, 6, 7]
     for i, (a, b) in enumerate(zip(matrix_a, matrix_b)):
         data_memory.write_data(i, a)  # Matrix A
         data_memory.write_data(i + 8, b)  # Matrix B
@@ -108,33 +109,72 @@ async def test_matrix_addition_kernel(dut):
     program_memory = MemoryInterface(dut=dut, addr_bits=8, data_bits=16, name="program")
     program_memory.load_program(program)
 
-    data_memory.display()
-    program_memory.display(decimal=False)
+    data_memory.display(24)
+    program_memory.display(13, decimal=False)
 
     # Start execution
     dut.start.value = 1
-    await RisingEdge(dut.clk)
-    dut.start.value = 0
 
     # # Wait for done signal
-    await cocotb.triggers.ReadOnly()
-    for i in range(1):
-        await RisingEdge(dut.clk)
+    for i in range(2000):
+        data_memory.run()
+        program_memory.run()
 
         # Display relevant signals/changes in the circuit
         await cocotb.triggers.ReadOnly()
-        print(f"Time: {cocotb.utils.get_sim_time('ns')} ns")
-        print(f"Device Control Register: {dut.device_conrol_register.value}")
-        print(f"Thread Count: {dut.thread_count.value}")
-        print(f"Block Dimension: {dut.block_dim.value}")
 
-        #     core_done = dut.cores[i].core_done.value
-        #     print(f"Core {i} Done: {core_done}")
-        #     for j in range(int(dut.THREADS_PER_WARP.value)):
-        #         lsu_read_valid = dut.cores[i].core_lsu_read_valid[j].value
-        #         lsu_write_valid = dut.cores[i].core_lsu_write_valid[j].value
-        #         print(f"  Thread {j} LSU Read Valid: {lsu_read_valid}, LSU Write Valid: {lsu_write_valid}")
-        # print(f"Overall Done: {dut.done.value}")
+        for i in len(dut.cores):
+            instruction = dut.cores[i].core_instance.instruction.value
+            if str(instruction) == "1000000001110110":
+                    for j in len(dut.cores[i].core_instance.threads):
+                        print(f"STR R7 ({dut.cores[0].}), R6 ()")
+
+        if False:
+            print("+---------------------+")
+            # print(f"TIME - {cocotb.utils.get_sim_time('ns')} ns")
+            # print(f"THREAD COUNT - {dut.cores[0].core_instance.thread_count.value}")
+            # print(f"NUM WARPS - {dut.cores[0].core_instance.warp_scheduler.NUM_WARPS.value}")
+            # print(f"CURRENT PC - {dut.cores[0].core_instance.warp_pc[0].value}")
+            print(f"CURRENT PC - {[item.value for item in dut.cores[0].core_instance.warp_pc]}")
+            # print(f"CURRENT WARP ID - {dut.cores[0].core_instance.current_warp_id.value}")
+            # print(f"NUM WARPS - {dut.cores[0].core_instance.warp_scheduler.NUM_WARPS.value}")
+            # print(f"DECODED DONE - {dut.cores[0].core_instance.warp_scheduler.decoded_done.value}")
+            print(f"INSTRUCTION - {dut.cores[0].core_instance.instruction.value}")
+            # print(f"ALU OUT - {[item.value for item in dut.cores[0].core_instance.alu_out]}")
+            # print(f"NEXT PC - {dut.cores[0].core_instance.next_pc[0].value}")
+            print("NEXT PC - ", [item.value for item in dut.cores[0].core_instance.next_pc])
+            print("CORE DONE - ", dut.cores[0].core_instance.done)
+            # print(f"STATE - {dut.cores[0].core_instance.state.value}")
+            # print("pmem_ctrl.current_consumer", dut.program_memory_controller.current_consumer.value)
+            # print("pmem_ctrl.mem_read_valid", dut.program_memory_controller.mem_read_valid.value)
+            # print("pmem_ctrl.mem_read_address", dut.program_memory_controller.mem_read_address.value)
+            # print("pmem_ctrl.mem_read_ready", dut.program_memory_controller.mem_read_ready.value)
+            # print("pmem_ctrl.mem_read_data", dut.program_memory_controller.mem_read_data.value)
+            # print(f"FETCH ENABLE - {dut.cores[0].core_instance.fetcher_instance.fetch_enable.value}")
+            # print(f"FETCHER STATE - {dut.cores[0].core_instance.fetcher_instance.state.value}")
+            # print(f"GLOBAL PMEM READ VALID - {dut.program_mem_read_valid.value}")
+            # print(f"GLOBAL PMEM READ ADDRESS - {dut.program_mem_read_address.value}")
+            # print(f"GLOBAL PMEM READ READY - {dut.program_mem_read_ready.value}")
+            # print(f"GLOBAL PMEM READ DATA - {dut.program_mem_read_data.value}")
+            # print(f"PMEM READ VALID - {dut.cores[0].core_instance.program_mem_read_valid.value}")
+            # print(f"PMEM READ ADDRESS - {dut.cores[0].core_instance.program_mem_read_address.value}")
+            # print(f"PMEM READ READY - {dut.cores[0].core_instance.program_mem_read_ready.value}")
+            # print(f"PMEM READ DATA - {dut.cores[0].core_instance.program_mem_read_data.value}")
+            # print(f"GLOBAL MEM READ VALID - {dut.program_mem_read_valid.value}")
+            # print(f"GLOBAL MEM READ READY - {dut.program_mem_read_ready.value}")
+            # print(f"CONTROLLER_READ_VALID - {dut.program_mem_read_valid.value}")
+            # print(f"BLOCK DIM - {dut.cores[0].core_instance.threads[0].register_instance.block_dim.value}")
+            # print(f"R13 - {dut.cores[0].core_instance.threads[0].register_instance.registers[13].value}")
+            # print(f"R14 - {dut.cores[0].core_instance.threads[0].register_instance.registers[14].value}")
+            # print(f"R15 - {dut.cores[0].core_instance.threads[0].register_instance.registers[15].value}")
+            # print(f"RD - Address: {dut.cores[0].core_instance.decoded_rd_address}; Value: {dut.cores[0].core_instance.rd[0].value}")
+            # print(f"RS - Address: {dut.cores[0].core_instance.decoded_rs_address}; Value: {dut.cores[0].core_instance.rs[0].value}")
+            # print(f"RT - Address: {dut.cores[0].core_instance.decoded_rt_address}; Value: {dut.cores[0].core_instance.rt[0].value}")
+            # print(f"INSTRUCTION READY - {dut.cores[0].core_instance.instruction_ready.value}")
+
+        await RisingEdge(dut.clk)
+
+    data_memory.display(24)
 
     # # Verify results
     # expected_results = [a + b for a, b in zip(matrix_a, matrix_b)]

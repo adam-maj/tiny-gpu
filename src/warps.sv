@@ -2,30 +2,28 @@
 `timescale 1ns/1ns
 
 module warps #(
-    parameter THREADS_PER_WARP = 2,
     parameter MAX_WARPS_PER_CORE = 2,
-    parameter CURRENT_WARP_ID_BITS = $clog2(THREADS_PER_WARP)
+    parameter THREADS_PER_WARP = 2,
+    parameter THREAD_ID_BITS = $clog2(THREADS_PER_WARP)
 ) (
     input wire clk,
     input wire reset,
     input wire start,
     input wire instruction_ready,
     input wire decoded_done,
-    input wire [THREADS_PER_WARP-1:0] lsu_state,
+    input wire [THREAD_ID_BITS-1:0] lsu_state,
     input wire [7:0] thread_count,
-    input wire [7:0] next_pc[0:THREADS_PER_WARP-1],
-    output reg [7:0] warp_pc[0:THREADS_PER_WARP-1],
-    output reg [CURRENT_WARP_ID_BITS-1:0] current_warp_id,
-    output wire fetch_enable,
+    input wire [7:0] next_pc[0:THREAD_ID_BITS-1],
+    output reg [1:0] state,
+    output reg [7:0] warp_pc[0:THREAD_ID_BITS-1],
+    output reg [THREAD_ID_BITS-1:0] current_warp_id,
     output wire done
 );
     localparam IDLE = 2'b00, FETCHING = 2'b01, PROCESSING = 2'b10, DONE = 2'b11;
-    reg [1:0] state = IDLE;
     
     wire [7:0] NUM_WARPS = (thread_count + THREADS_PER_WARP - 1) / THREADS_PER_WARP;
     reg [MAX_WARPS_PER_CORE-1:0] warp_done;
 
-    assign fetch_enable = (state == FETCHING);
     assign done = &(warp_done);
 
     always @(posedge clk) begin
