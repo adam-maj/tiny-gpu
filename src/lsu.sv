@@ -29,7 +29,6 @@ module lsu (
     reg [1:0] read_state = IDLE;
     reg [1:0] write_state = IDLE;
 
-
     assign lsu_out = lsu_out_reg;
     assign lsu_state = (read_state == STORING) 
         ? STORING

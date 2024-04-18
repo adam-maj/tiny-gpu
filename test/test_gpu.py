@@ -102,8 +102,8 @@ async def test_matrix_addition_kernel(dut):
 
     # Load data into data memory
     data_memory = MemoryInterface(dut=dut, addr_bits=8, data_bits=8, name="data")
-    matrix_a = [0, 1, 2, 3, 4, 5, 6, 7]
-    matrix_b = [0, 1, 2, 3, 3, 4, 6, 7]
+    matrix_a = [2, 3, 4, 5, 6, 7, 8, 9]
+    matrix_b = [2, 3, 4, 5, 6, 7, 8, 9]
     for i, (a, b) in enumerate(zip(matrix_a, matrix_b)):
         data_memory.write_data(i, a)  # Matrix A
         data_memory.write_data(i + 8, b)  # Matrix B
@@ -119,7 +119,7 @@ async def test_matrix_addition_kernel(dut):
     dut.start.value = 1
 
     # # Wait for done signal
-    waiting_for_lsu = 0
+    cycles = 0
     for i in range(500):
         data_memory.run()
         program_memory.run()
@@ -151,6 +151,7 @@ async def test_matrix_addition_kernel(dut):
                             reg_values += f"r{i} = {int(r[i].value)}, "
                         print(reg_values)
                         print("num warps:", int(core.core_instance.warp_scheduler.NUM_WARPS.value))
+                        print("core state:", core.core_instance.state.value)
                 
                 if idx == 1:
                     # print("current_warp_id", core.core_instance.current_warp_id.value)
@@ -176,6 +177,25 @@ async def test_matrix_addition_kernel(dut):
 
                     # print("lsu_state", thread.lsu_instance.lsu_state.value)
                     # log("0101000011011110", "MUL R0, $blockIdx, $blockDim")
+
+                    if core.core_instance.warp_scheduler.decoded_mem_read_enable.value != 0:
+                        print("\nDETECTED_decoded_mem_read_enable", core.core_instance.warp_scheduler.decoded_mem_read_enable.value)
+
+                    if str(instruction).startswith("0111") or cycles > 0:
+                        print("\nCYCLE:", cycles)
+                        print("instruction:", instruction)
+                        print("core state:", core.core_instance.state.value)
+                        print("fetcher state:", core.core_instance.fetcher_instance.state.value)
+                        print("lsu state:", thread.lsu_instance.lsu_state.value)
+                        print("decoded_mem_read_enable", core.core_instance.warp_scheduler.decoded_mem_read_enable.value)
+                        print("decoded_mem_write_enable", core.core_instance.warp_scheduler.decoded_mem_write_enable.value)
+
+                        if not str(instruction).startswith("0111"):
+                            cycles -= 1
+                        else:
+                            cycles = 5
+                    
+
                     log("0011000000001111", "ADD R0, R0, $threadIdx")
 
                     log("1001000100000000", f"CONST R1, #{int(core.core_instance.decoder_instance.decoded_immediate.value)}")
