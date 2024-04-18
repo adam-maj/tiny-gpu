@@ -61,15 +61,15 @@ module warps #(
                         warp_done[current_warp_id] <= 1;
                         state <= FETCHING;
                     end else begin
-                        if (decoded_mem_read_enable || decoded_mem_write_enable) begin 
-                            state <= WAITING;
-                        end else begin
+                        // if (decoded_mem_read_enable || decoded_mem_write_enable) begin 
+                        //     state <= WAITING;
+                        // end else begin
                             // TODO: BRANCH DIVERGENCE
-                            warp_pc[current_warp_id] <= next_pc[0];
-                            current_warp_id <= (current_warp_id + 1) % NUM_WARPS;
-                            
-                            state <= FETCHING;
-                        end
+                        warp_pc[current_warp_id] <= next_pc[0];
+                        current_warp_id <= (current_warp_id + 1) % NUM_WARPS;
+                        
+                        state <= FETCHING;
+                        // end
                     end
                 end
                 WAITING: begin 

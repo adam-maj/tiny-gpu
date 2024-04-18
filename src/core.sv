@@ -79,12 +79,14 @@ module core #(
         .reset(reset),
         .fetch_enable(state == FETCHING),
         .current_pc(warp_pc[current_warp_id]),
+        .decoded_mem_read_enable(decoded_mem_read_enable),
+        .decoded_mem_write_enable(decoded_mem_write_enable),
         .mem_read_valid(program_mem_read_valid),
         .mem_read_address(program_mem_read_address),
         .mem_read_ready(program_mem_read_ready),
         .mem_read_data(program_mem_read_data),
         .instruction_ready(instruction_ready),
-        .instruction(instruction)
+        .instruction(instruction) 
     );
 
     decoder decoder_instance (

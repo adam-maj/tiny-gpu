@@ -9,8 +9,10 @@ module fetcher #(
     input wire reset,
     
     input wire fetch_enable,
-    // input wire instruction_processed,
     input wire [ADDRESS_BITS-1:0] current_pc,
+
+    input wire decoded_mem_read_enable,
+    input wire decoded_mem_write_enable,
 
     output reg mem_read_valid,
     output reg [ADDRESS_BITS-1:0] mem_read_address,
@@ -48,11 +50,18 @@ module fetcher #(
                     end
                 end
                 FETCHED: begin
+                    // if (decoded_mem_read_enable || decoded_mem_write_enable) begin 
+                    //     // If we're interfacing with memory, we can't just switch immediately
+                    //     state <= PROCESSING;
+                    // end else begin
+                    //     // Otherwise 1 cycle is enough for all processing
+                    //     state <= IDLE;
+                    // end
                     // Allow 1 cycle for the warp state to switch off fetching
                     state <= PROCESSING;
                 end
                 PROCESSING: begin 
-                    // Wait for instruction to be processed
+                    // If we're here, wait for the LSU to finish processing (fetch_enable again)
                     if (fetch_enable) begin 
                         state <= IDLE;
                     end
