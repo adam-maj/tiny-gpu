@@ -5,7 +5,7 @@
 module controller #(
     parameter ADDR_BITS = 8,
     parameter DATA_BITS = 16,
-    parameter NUM_CONSUMERS = 16
+    parameter NUM_CONSUMERS = 4
 ) (
     input wire clk,
     input wire reset,

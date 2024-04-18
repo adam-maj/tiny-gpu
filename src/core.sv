@@ -6,8 +6,9 @@ module core #(
     parameter DATA_MEM_DATA_BITS = 8,
     parameter PROGRAM_MEM_ADDR_BITS = 8,
     parameter PROGRAM_MEM_DATA_BITS = 16,
-    parameter MAX_WARPS_PER_CORE = 4,
-    parameter THREADS_PER_WARP = 4,
+    parameter MAX_WARPS_PER_CORE = 2,
+    parameter THREADS_PER_WARP = 2,
+    parameter CURRENT_WARP_ID_BITS = $clog2(THREADS_PER_WARP),
     parameter CORE_ID = 0
 ) (
     input wire clk,
@@ -25,11 +26,6 @@ module core #(
     input reg program_mem_read_ready,
     input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
 
-    output reg program_mem_write_valid,
-    output reg [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_write_address,
-    output reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_write_data,
-    input reg program_mem_write_ready,
-
     // DATA MEMORY
     output reg [THREADS_PER_WARP-1:0] data_mem_read_valid,
     output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_WARP-1:0],
@@ -41,19 +37,14 @@ module core #(
     output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_WARP-1:0],
     input reg [THREADS_PER_WARP-1:0] data_mem_write_ready
 );
-    // STATE
-    localparam IDLE = 2'b00, FETCHING = 2'b01, PROCESSING = 2'b10, DONE = 2'b11; 
-    reg [1:0] state = IDLE;
-
     // WARPS
-    wire warp_count = (thread_count + THREADS_PER_WARP - 1) / THREADS_PER_WARP;
     reg [7:0] warp_pc [0:MAX_WARPS_PER_CORE-1];
-    reg warp_done [0:MAX_WARPS_PER_CORE-1];
-    reg [7:0] current_warp_id;
+    reg [CURRENT_WARP_ID_BITS-1:0] current_warp_id;
 
     // INSTRUCTION
     wire [15:0] instruction;
-    wire instruction_ready = 0;
+    wire instruction_ready;
+    wire fetch_enable;
 
     // DECODER
     wire [3:0] decoded_rd_address;
@@ -83,7 +74,7 @@ module core #(
     fetcher fetcher_instance (
         .clk(clk),
         .reset(reset),
-        .fetch_enable(state == FETCHING),
+        .fetch_enable(fetch_enable),
         .current_pc(warp_pc[current_warp_id]),
         .mem_read_valid(program_mem_read_valid),
         .mem_read_address(program_mem_read_address),
@@ -108,12 +99,15 @@ module core #(
         .decoded_nzp_write_enable(decoded_nzp_write_enable),
         .decoded_reg_input_mux(decoded_reg_input_mux),
         .decoded_alu_arithmetic_mux(decoded_alu_arithmetic_mux),
-        .decoded_alu_output_mux(decoded_alu_output_mux)
+        .decoded_alu_output_mux(decoded_alu_output_mux),
+        .decoded_pc_mux(decoded_pc_mux),
+        .decoded_done(decoded_done)
     );
 
     warps #(
         .THREADS_PER_WARP(THREADS_PER_WARP),
-        .MAX_WARPS_PER_CORE(MAX_WARPS_PER_CORE)
+        .MAX_WARPS_PER_CORE(MAX_WARPS_PER_CORE),
+        .CURRENT_WARP_ID_BITS(CURRENT_WARP_ID_BITS)
     ) warp_scheduler (
         .clk(clk),
         .reset(reset),
@@ -122,8 +116,10 @@ module core #(
         .decoded_done(decoded_done),
         .lsu_state(lsu_state),
         .thread_count(thread_count),
+        .warp_pc(warp_pc),
         .next_pc(next_pc),
         .current_warp_id(current_warp_id),
+        .fetch_enable(fetch_enable),
         .done(done)
     );
 

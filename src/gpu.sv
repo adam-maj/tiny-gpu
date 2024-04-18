@@ -6,9 +6,9 @@ module gpu #(
     parameter DATA_MEM_DATA_BITS = 8,
     parameter PROGRAM_MEM_ADDR_BITS = 8,
     parameter PROGRAM_MEM_DATA_BITS = 16,
-    parameter NUM_CORES = 4,
-    parameter MAX_WARPS_PER_CORE = 4,
-    parameter THREADS_PER_WARP = 4
+    parameter NUM_CORES = 2,
+    parameter MAX_WARPS_PER_CORE = 2,
+    parameter THREADS_PER_WARP = 2
 ) (
     input wire clk,
     input wire reset,
@@ -24,10 +24,6 @@ module gpu #(
     output wire [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_read_address,
     input reg program_mem_read_ready,
     input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
-    output wire program_mem_write_valid,
-    output wire [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_write_address,
-    output wire [PROGRAM_MEM_DATA_BITS-1:0] program_mem_write_data,
-    input reg program_mem_write_ready,
 
     // DATA MEMORY
     output wire data_mem_read_valid,
@@ -74,10 +70,6 @@ module gpu #(
     wire [PROGRAM_MEM_ADDR_BITS-1:0] fetcher_read_address [NUM_FETCHERS-1:0];
     wire [NUM_FETCHERS-1:0] fetcher_read_ready;
     wire [PROGRAM_MEM_DATA_BITS-1:0] fetcher_read_data [NUM_FETCHERS-1:0];
-    wire [NUM_FETCHERS-1:0] fetcher_write_valid;
-    wire [PROGRAM_MEM_ADDR_BITS-1:0] fetcher_write_address [NUM_FETCHERS-1:0];
-    wire [PROGRAM_MEM_DATA_BITS-1:0] fetcher_write_data [NUM_FETCHERS-1:0];
-    wire [NUM_FETCHERS-1:0] fetcher_write_ready;
     
     // MEMORY CONTROLLERS
     controller #(
@@ -122,20 +114,12 @@ module gpu #(
         .consumer_read_address(fetcher_read_address),
         .consumer_read_ready(fetcher_read_ready),
         .consumer_read_data(fetcher_read_data),
-        .consumer_write_valid(fetcher_write_valid),
-        .consumer_write_address(fetcher_write_address),
-        .consumer_write_data(fetcher_write_data),
-        .consumer_write_ready(fetcher_write_ready),
 
         // Data Memory
         .mem_read_valid(program_mem_read_valid),
         .mem_read_address(program_mem_read_address),
         .mem_read_ready(program_mem_read_ready),
         .mem_read_data(program_mem_read_data),
-        .mem_write_valid(program_mem_write_valid),
-        .mem_write_address(program_mem_write_address),
-        .mem_write_data(program_mem_write_data),
-        .mem_write_ready(program_mem_write_ready)
     );
 
     // CORES
@@ -186,11 +170,7 @@ module gpu #(
                 .program_mem_read_address(fetcher_read_address[i]),
                 .program_mem_read_ready(fetcher_read_ready[i]),
                 .program_mem_read_data(fetcher_read_data[i]),
-                .program_mem_write_valid(fetcher_write_valid[i]),
-                .program_mem_write_address(fetcher_write_address[i]),
-                .program_mem_write_data(fetcher_write_data[i]),
-                .program_mem_write_ready(fetcher_write_ready[i]),
-
+                
                 // Data Memory
                 .data_mem_read_valid(core_lsu_read_valid),
                 .data_mem_read_address(core_lsu_read_address),

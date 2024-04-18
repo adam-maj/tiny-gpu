@@ -21,7 +21,6 @@ module decoder (
     output wire [1:0] decoded_reg_input_mux,        // Select input to register
     output wire [1:0] decoded_alu_arithmetic_mux,   // Select arithmetic operation
     output wire decoded_alu_output_mux,             // Select operation in ALU
-    
     output wire decoded_pc_mux,                     // Select source of next PC
 
     // Done
