@@ -17,7 +17,7 @@ module warps #(
 
     input wire [1:0] lsu_state [THREAD_ID_BITS-1:0],
     input wire [7:0] thread_count,
-    input wire [7:0] next_pc[0:THREAD_ID_BITS-1],
+    input reg [7:0] next_pc[0:THREAD_ID_BITS-1],
     output reg [1:0] state,
     output reg [7:0] warp_pc[0:THREAD_ID_BITS-1],
     output reg [THREAD_ID_BITS-1:0] current_warp_id,

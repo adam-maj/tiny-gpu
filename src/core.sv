@@ -72,7 +72,7 @@ module core #(
     wire [7:0] alu_out[THREADS_PER_WARP-1:0];
     wire [1:0] lsu_state[THREADS_PER_WARP-1:0];
     wire [7:0] lsu_out[THREADS_PER_WARP-1:0];
-    wire [7:0] next_pc[THREADS_PER_WARP-1:0];
+    reg [7:0] next_pc[THREADS_PER_WARP-1:0];
 
     fetcher fetcher_instance (
         .clk(clk),
