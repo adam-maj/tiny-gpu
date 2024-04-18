@@ -21,17 +21,21 @@ module lsu (
     input wire [7:0] rs,
     input wire [7:0] rt,
 
-    output wire lsu_state,
+    output wire [1:0] lsu_state,
     output wire [7:0] lsu_out
 );
-    localparam IDLE = 0, WAITING = 1;
+    localparam IDLE = 2'b00, WAITING = 2'b01, STORING = 2'b10;
     reg [7:0] lsu_out_reg = 0;
-    reg read_state = IDLE;
-    reg write_state = IDLE;
+    reg [1:0] read_state = IDLE;
+    reg [1:0] write_state = IDLE;
 
 
     assign lsu_out = lsu_out_reg;
-    assign lsu_state = (read_state == WAITING || write_state == WAITING) ? WAITING : IDLE;
+    assign lsu_state = (read_state == STORING) 
+        ? STORING
+        : (read_state == WAITING || write_state == WAITING) 
+        ? WAITING 
+        : IDLE;
 
     always @(posedge clk) begin
         if (reset) begin
@@ -47,12 +51,15 @@ module lsu (
                     end
                 end
                 WAITING: begin
-                    if (mem_read_ready) begin
+                    if (mem_read_ready == 1) begin
                         mem_read_valid <= 0;
                         lsu_out_reg <= mem_read_data;
                         // TODO: Need to go to a state to be read first...
-                        read_state <= IDLE;
+                        read_state <= STORING;
                     end
+                end
+                STORING: begin 
+                    read_state <= IDLE;
                 end
             endcase
 

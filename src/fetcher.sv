@@ -20,11 +20,11 @@ module fetcher #(
     output instruction_ready,
     output [DRAWER_BITS-1:0] instruction
 );
-    localparam IDLE = 2'b00, FETCHING = 2'b01, DONE = 2'b10;
+    localparam IDLE = 2'b00, FETCHING = 2'b01, FETCHED = 2'b10, PROCESSING = 2'b11;
     reg [1:0] state = IDLE;
     reg [DRAWER_BITS-1:0] instruction_buffer;
-    assign instruction_ready = (state == DONE);
-    assign instruction = (state == DONE) ? instruction_buffer : 16'b0;
+    assign instruction_ready = (state == FETCHED) || (state == PROCESSING);
+    assign instruction = (state == FETCHED) ? instruction_buffer : 16'b0;
 
     always @(posedge clk) begin
         if (reset) begin
@@ -44,12 +44,16 @@ module fetcher #(
                     if (mem_read_ready) begin
                         instruction_buffer <= mem_read_data;
                         mem_read_valid <= 0;
-                        state <= DONE;
+                        state <= FETCHED;
                     end
                 end
-                DONE: begin
+                FETCHED: begin
+                    // Allow 1 cycle for the warp state to switch off fetching
+                    state <= PROCESSING;
+                end
+                PROCESSING: begin 
                     // Wait for instruction to be processed
-                    if (fetch_enable) begin
+                    if (fetch_enable) begin 
                         state <= IDLE;
                     end
                 end

@@ -47,19 +47,22 @@ class MemoryInterface:
             self.write_data(address, data)
 
     def display(self, rows, decimal=True):
-        print("\n")
-        print(self.name.upper())
-        print("+" + "-" * (self.addr_bits * 2 + 9) + "+")
-        print("| Addr | Data |")
-        print("+" + "-" * (self.addr_bits * 2 + 9) + "+")
-        for i, data in enumerate(self.memory):
-            if i < rows:
-                if decimal:
-                    print(f"| {i:<4} | {data:<4} |")
-                else:
-                    data_bin = format(data, f'0{self.data_bits}b')
-                    print(f"| {i:<4} | {data_bin} |")
-        print("+" + "-" * (self.addr_bits * 2 + 9) + "+")
+        pretty(rows, self.name, self.memory, decimal)
+
+def pretty(rows, name, data, decimal=True):
+    print("\n")
+    print(name.upper())
+    print("+" + "-" * (8 * 2 + 9) + "+")
+    print("| Addr | Data ")
+    print("+" + "-" * (8 * 2 + 9) + "+")
+    for i, data in enumerate(data):
+        if i < rows:
+            if decimal:
+                print(f"| {i:<4} | {data:<4} |")
+            else:
+                data_bin = format(data, f'0{16}b')
+                print(f"| {i:<4} | {data_bin} |")
+    print("+" + "-" * (8 * 2 + 9) + "+")
 
 async def reset(dut):
     dut.reset.value = 1
@@ -116,18 +119,79 @@ async def test_matrix_addition_kernel(dut):
     dut.start.value = 1
 
     # # Wait for done signal
-    for i in range(2000):
+    waiting_for_lsu = 0
+    for i in range(500):
         data_memory.run()
         program_memory.run()
 
         # Display relevant signals/changes in the circuit
         await cocotb.triggers.ReadOnly()
 
-        for i in len(dut.cores):
-            instruction = dut.cores[i].core_instance.instruction.value
-            if str(instruction) == "1000000001110110":
-                    for j in len(dut.cores[i].core_instance.threads):
-                        print(f"STR R7 ({dut.cores[0].}), R6 ()")
+        for core in dut.cores:
+            instruction = core.core_instance.instruction.value
+            for thread in core.core_instance.threads:
+                r = thread.register_instance.registers
+                block_idx = core.core_instance.CORE_ID.value
+                block_dim = int(core.core_instance.block_dim)
+                thread_idx = thread.register_instance.THREAD_ID.value
+                idx = block_idx * block_dim + thread_idx
+
+                rd = int(core.core_instance.rd[thread_idx].value)
+                rs = int(core.core_instance.rs[thread_idx].value)
+                rt = int(core.core_instance.rt[thread_idx].value)
+
+                def log(machine, assembly):
+                    if str(instruction) == machine:
+                        print("\n")
+                        print(assembly)
+                        print(f"Index: {idx}, Block: {block_idx}")
+                        print(f"rd = {rd}, rs = {rs}, rt = {rt}")
+                        reg_values = ""
+                        for i in range(16):
+                            reg_values += f"r{i} = {int(r[i].value)}, "
+                        print(reg_values)
+                        print("num warps:", int(core.core_instance.warp_scheduler.NUM_WARPS.value))
+                
+                if idx == 1:
+                    # print("current_warp_id", core.core_instance.current_warp_id.value)
+                    # if thread.lsu_instance.lsu_state.value != 0 and thread.lsu_instance.mem_read_ready.value == 1:
+                    #     print("\nlsu_state", thread.lsu_instance.lsu_state.value)
+                    #     print("instruction", core.core_instance.instruction.value)
+                    #     # print("lsu_out_reg", thread.lsu_instance.lsu_out_reg.value)
+                    #     # print("dmem_ctrl.consumer_read_ready", dut.data_memory_controller.consumer_read_ready.value)
+                    #     print("lsu_mem_read_ready", thread.lsu_instance.mem_read_ready.value)
+                    #     print("lsu_mem_read_data", thread.lsu_instance.mem_read_data.value)
+                    #     print("decoded_mem_read_enable", core.core_instance.warp_scheduler.decoded_mem_read_enable.value)
+                    #     print("warp_state", core.core_instance.warp_scheduler.state.value)
+                    #     waiting_for_lsu = 3
+                    # elif waiting_for_lsu > 0:
+                    #     print("\nlsu_state", thread.lsu_instance.lsu_state.value)
+                    #     # print("lsu_out_reg", thread.lsu_instance.lsu_out_reg.value)
+                    #     print("dmem_ctrl.consumer_read_ready", dut.data_memory_controller.consumer_read_ready.value)
+                    #     print("lsu_mem_read_ready", thread.lsu_instance.mem_read_ready.value)
+                    #     print("lsu_mem_read_data", thread.lsu_instance.mem_read_data.value)
+                    #     print("decoded_mem_read_enable", core.core_instance.warp_scheduler.decoded_mem_read_enable.value)
+                    #     print("warp_state", core.core_instance.warp_scheduler.state.value)
+                    #     waiting_for_lsu -= 1
+
+                    # print("lsu_state", thread.lsu_instance.lsu_state.value)
+                    # log("0101000011011110", "MUL R0, $blockIdx, $blockDim")
+                    log("0011000000001111", "ADD R0, R0, $threadIdx")
+
+                    log("1001000100000000", f"CONST R1, #{int(core.core_instance.decoder_instance.decoded_immediate.value)}")
+                    log("1001001000001000", f"CONST R2, #{int(core.core_instance.decoder_instance.decoded_immediate.value)}")
+                    log("1001001100010000", f"CONST R3, #{int(core.core_instance.decoder_instance.decoded_immediate.value)}")
+
+                    log("0011010000010000", "ADD R4, R1, R0")
+                    log("0111010001000000", "LDR R4, R4")
+
+                    log("0011010100100000", "ADD R5, R2, R0")
+                    log("0111010101010000", "LDR R5, R5")
+
+                    log("0011011001000101", "ADD R6, R4, R5")
+                    log("0011011100110000", "ADD R7, R3, R0")
+
+                    log("1000000001110110", "STR R7, R6")
 
         if False:
             print("+---------------------+")

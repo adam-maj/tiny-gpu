@@ -38,7 +38,7 @@ module core #(
     input reg [THREADS_PER_WARP-1:0] data_mem_write_ready
 );
     // STATE
-    localparam IDLE = 2'b00, FETCHING = 2'b01, PROCESSING = 2'b10, DONE = 2'b11;
+    localparam IDLE = 2'b00, FETCHING = 2'b01, PROCESSING = 2'b10, WAITING = 2'b11;
     reg [1:0] state;
     
     // WARPS
@@ -70,7 +70,7 @@ module core #(
     wire [7:0] rt[THREADS_PER_WARP-1:0];
     wire [7:0] rd[THREADS_PER_WARP-1:0];
     wire [7:0] alu_out[THREADS_PER_WARP-1:0];
-    wire [THREADS_PER_WARP-1:0] lsu_state;
+    wire [1:0] lsu_state[THREADS_PER_WARP-1:0];
     wire [7:0] lsu_out[THREADS_PER_WARP-1:0];
     wire [7:0] next_pc[THREADS_PER_WARP-1:0];
 
@@ -118,6 +118,8 @@ module core #(
         .state(state),
         .instruction_ready(instruction_ready),
         .decoded_done(decoded_done),
+        .decoded_mem_read_enable(decoded_mem_read_enable),
+        .decoded_mem_write_enable(decoded_mem_write_enable),
         .lsu_state(lsu_state),
         .thread_count(thread_count),
         .warp_pc(warp_pc),

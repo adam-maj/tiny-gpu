@@ -11,7 +11,11 @@ module warps #(
     input wire start,
     input wire instruction_ready,
     input wire decoded_done,
-    input wire [THREAD_ID_BITS-1:0] lsu_state,
+
+    input wire decoded_mem_read_enable,
+    input wire decoded_mem_write_enable,
+
+    input wire [1:0] lsu_state [THREAD_ID_BITS-1:0],
     input wire [7:0] thread_count,
     input wire [7:0] next_pc[0:THREAD_ID_BITS-1],
     output reg [1:0] state,
@@ -19,7 +23,7 @@ module warps #(
     output reg [THREAD_ID_BITS-1:0] current_warp_id,
     output wire done
 );
-    localparam IDLE = 2'b00, FETCHING = 2'b01, PROCESSING = 2'b10, DONE = 2'b11;
+    localparam IDLE = 2'b00, FETCHING = 2'b01, PROCESSING = 2'b10, WAITING = 2'b11;
     
     wire [7:0] NUM_WARPS = (thread_count + THREADS_PER_WARP - 1) / THREADS_PER_WARP;
     reg [MAX_WARPS_PER_CORE-1:0] warp_done;
@@ -43,15 +47,12 @@ module warps #(
                     end
                 end
                 FETCHING: begin
-                    if (&warp_done) begin
-                        state <= DONE;
-                    end else begin
-                        if (warp_done[current_warp_id]) begin
-                            current_warp_id <= (current_warp_id + 1) % NUM_WARPS;
-                        end else begin 
-                            if (instruction_ready) begin 
-                                state <= PROCESSING;
-                            end
+                    // TODO: Add a done state
+                    if (warp_done[current_warp_id]) begin
+                        current_warp_id <= (current_warp_id + 1) % NUM_WARPS;
+                    end else begin 
+                        if (instruction_ready) begin 
+                            state <= PROCESSING;
                         end
                     end
                 end
@@ -60,8 +61,9 @@ module warps #(
                         warp_done[current_warp_id] <= 1;
                         state <= FETCHING;
                     end else begin
-                        // TODO: fix
-                        if (!lsu_state[0]) begin
+                        if (decoded_mem_read_enable || decoded_mem_write_enable) begin 
+                            state <= WAITING;
+                        end else begin
                             // TODO: BRANCH DIVERGENCE
                             warp_pc[current_warp_id] <= next_pc[0];
                             current_warp_id <= (current_warp_id + 1) % NUM_WARPS;
@@ -70,8 +72,13 @@ module warps #(
                         end
                     end
                 end
-                DONE: begin
-                    // no-op
+                WAITING: begin 
+                    if (lsu_state[current_warp_id] == 2'b00) begin 
+                        warp_pc[current_warp_id] <= next_pc[0];
+                        current_warp_id <= (current_warp_id + 1) % NUM_WARPS;
+                            
+                        state <= FETCHING;
+                    end
                 end
             endcase
         end
