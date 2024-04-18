@@ -25,14 +25,15 @@ module warps #(
 
     assign done = &(warp_done);
 
+    integer i;
     always @(posedge clk) begin
         if (reset) begin
             state <= IDLE;
             current_warp_id <= 0; 
 
-            for (int i = 0; i < MAX_WARPS_PER_CORE; i++) begin
-                warp_pc[i] <= 0;
-                warp_done[i] <= 0;
+            for (i = 0; i < MAX_WARPS_PER_CORE; i = i + 1) begin
+                warp_pc[i] = 0;
+                warp_done[i] = 0;
             end
         end else begin
             case (state)
@@ -41,9 +42,9 @@ module warps #(
                         state <= FETCHING;
 
                         if (NUM_WARPS <= MAX_WARPS_PER_CORE) begin 
-                            for (int i = 0; i < NUM_WARPS; i++) begin
-                                warp_pc[i] <= i * THREADS_PER_WARP;
-                                warp_done[i] <= 0;
+                            for (i = 0; i < NUM_WARPS; i = i + 1) begin
+                                warp_pc[i] = i * THREADS_PER_WARP;
+                                warp_done[i] = 0;
                             end
                         end else begin
                             $display("ERROR: NUM_WARPS exceeds MAX_WARPS_PER_CORE");
@@ -65,13 +66,13 @@ module warps #(
                 end
                 PROCESSING: begin
                     if (decoded_done) begin
-                        warp_done[current_warp_id] <= 1;
+                        warp_done[current_warp_id] = 1;
                         state <= FETCHING;
                     end else begin
                         // TODO: fix
                         if (!lsu_state[0]) begin
                             // TODO: BRANCH DIVERGENCE
-                            warp_pc[current_warp_id] <= next_pc[0];
+                            warp_pc[current_warp_id] = next_pc[0];
                             current_warp_id <= (current_warp_id + 1) % NUM_WARPS;
                             
                             state <= FETCHING;

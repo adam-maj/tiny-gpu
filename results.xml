@@ -1,7 +1,6 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1713382806" />
-    <testcase name="test_initial_state" classname="test.test_warps" file="/Users/adam/Documents/chips/tiny-gpu/test/test_warps.py" lineno="17" time="0.0003600120544433594" sim_time_ns="10001.0" ratio_time="27779625.366887417" />
-    <testcase name="test_warp_addition" classname="test.test_warps" file="/Users/adam/Documents/chips/tiny-gpu/test/test_warps.py" lineno="24" time="0.0004889965057373047" sim_time_ns="60001.0" ratio_time="122702308.29058996" />
+    <property name="random_seed" value="1713396434" />
+    <testcase name="test_matrix_addition_kernel" classname="test.test_gpu" file="/Users/adam/Documents/chips/tiny-gpu/test/test_gpu.py" lineno="73" time="0.0032079219818115234" sim_time_ns="30001.0" ratio_time="9352160.111780008" />
   </testsuite>
 </testsuites>

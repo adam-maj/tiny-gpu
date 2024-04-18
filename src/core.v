@@ -197,4 +197,3 @@ module core #(
         end
     endgenerate
 endmodule
-

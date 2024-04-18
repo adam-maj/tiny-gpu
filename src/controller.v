@@ -12,13 +12,13 @@ module controller #(
 
     // LSU Interface
     input wire [NUM_CONSUMERS-1:0] consumer_read_valid,
-    input wire [ADDR_BITS-1:0] consumer_read_address [NUM_CONSUMERS-1:0],
+    input wire [ADDR_BITS-1:0] consumer_read_address[NUM_CONSUMERS-1:0],
     output wire [NUM_CONSUMERS-1:0] consumer_read_ready,
-    output wire [DATA_BITS-1:0] consumer_read_data [NUM_CONSUMERS-1:0],
+    output wire [DATA_BITS-1:0] consumer_read_data[NUM_CONSUMERS-1:0],
 
     input wire [NUM_CONSUMERS-1:0] consumer_write_valid,
-    input wire [ADDR_BITS-1:0] consumer_write_address [NUM_CONSUMERS-1:0],
-    input wire [DATA_BITS-1:0] consumer_write_data [NUM_CONSUMERS-1:0],
+    input wire [ADDR_BITS-1:0] consumer_write_address[NUM_CONSUMERS-1:0],
+    input wire [DATA_BITS-1:0] consumer_write_data[NUM_CONSUMERS-1:0],
     output wire [NUM_CONSUMERS-1:0] consumer_write_ready,
 
     // Memory Interface
@@ -33,7 +33,6 @@ module controller #(
     input wire mem_write_ready
 );
     // QUEUE
-    reg [NUM_CONSUMERS-1:0] request_queue;
     reg [NUM_CONSUMERS-1:0] request_pending;
 
     // STATE
@@ -47,8 +46,7 @@ module controller #(
 
     // Keep queue and pending status up to date
     always @(*) begin
-        request_queue = consumer_read_valid | consumer_write_valid;
-        request_pending = request_queue & ~(consumer_read_ready | consumer_write_ready);
+        request_pending = (consumer_read_valid | consumer_write_valid) & ~(consumer_read_ready | consumer_write_ready);
     end
 
     // Send requests to memory
@@ -62,8 +60,6 @@ module controller #(
             mem_write_valid <= 0;
             mem_write_address <= 0;
             mem_write_data <= 0;
-            request_queue <= 0;
-            request_pending <= 0;
             response_valid <= 0;
 
             for (int i = 0; i < NUM_CONSUMERS; i++) begin
