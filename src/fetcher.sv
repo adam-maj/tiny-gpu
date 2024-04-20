@@ -2,8 +2,8 @@
 `timescale 1ns/1ns
 
 module fetcher #(
-    parameter PROGRAM_MEM_ADDR_BITS = 8,
-    parameter PROGRAM_MEM_DATA_BITS = 16
+    parameter PROGRAM_MEM_ADDR_BITS,
+    parameter PROGRAM_MEM_DATA_BITS
 ) (
     input wire clk,
     input wire reset,

@@ -2,14 +2,12 @@
 `timescale 1ns/1ns
 
 module core #(
-    parameter DATA_MEM_ADDR_BITS = 8,
-    parameter DATA_MEM_DATA_BITS = 8,
-    parameter PROGRAM_MEM_ADDR_BITS = 8,
-    parameter PROGRAM_MEM_DATA_BITS = 16,
-    parameter MAX_WARPS_PER_CORE = 2,
-    parameter THREADS_PER_WARP = 2,
-    parameter THREAD_ID_BITS = $clog2(THREADS_PER_WARP),
-    parameter CORE_ID = 0
+    parameter DATA_MEM_ADDR_BITS,
+    parameter DATA_MEM_DATA_BITS,
+    parameter PROGRAM_MEM_ADDR_BITS,
+    parameter PROGRAM_MEM_DATA_BITS,
+    parameter THREADS_PER_CORE,
+    parameter CORE_ID
 ) (
     input wire clk,
     input wire reset,
@@ -27,33 +25,29 @@ module core #(
     input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
 
     // DATA MEMORY
-    output reg [THREADS_PER_WARP-1:0] data_mem_read_valid,
-    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_WARP-1:0],
-    input reg [THREADS_PER_WARP-1:0] data_mem_read_ready,
-    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_WARP-1:0],
+    output reg [THREADS_PER_CORE-1:0] data_mem_read_valid,
+    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_CORE-1:0],
+    input reg [THREADS_PER_CORE-1:0] data_mem_read_ready,
+    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_CORE-1:0],
 
-    output reg [THREADS_PER_WARP-1:0] data_mem_write_valid,
-    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_WARP-1:0],
-    output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_WARP-1:0],
-    input reg [THREADS_PER_WARP-1:0] data_mem_write_ready
+    output reg [THREADS_PER_CORE-1:0] data_mem_write_valid,
+    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_CORE-1:0],
+    output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_CORE-1:0],
+    input reg [THREADS_PER_CORE-1:0] data_mem_write_ready
 );
-    // WARPS
-    reg [7:0] warp_pc [MAX_WARPS_PER_CORE-1:0];
-    reg [THREAD_ID_BITS-1:0] current_warp_id;
-
     // STATE
-    localparam IDLE = 2'b00, FETCHING = 2'b01, PROCESSING = 2'b10, WAITING = 2'b11;
     reg [2:0] core_state;
     reg [2:0] fetcher_state;
     reg [15:0] instruction;
 
     // EXECUTION
-    reg [7:0] rs[THREADS_PER_WARP-1:0];
-    reg [7:0] rt[THREADS_PER_WARP-1:0];
-    reg [1:0] lsu_state[THREADS_PER_WARP-1:0];
-    reg [7:0] lsu_out[THREADS_PER_WARP-1:0];
-    wire [7:0] next_pc[THREADS_PER_WARP-1:0];
-    wire [7:0] alu_out[THREADS_PER_WARP-1:0];
+    reg [7:0] current_pc;
+    wire [7:0] next_pc[THREADS_PER_CORE-1:0];
+    reg [7:0] rs[THREADS_PER_CORE-1:0];
+    reg [7:0] rt[THREADS_PER_CORE-1:0];
+    reg [1:0] lsu_state[THREADS_PER_CORE-1:0];
+    reg [7:0] lsu_out[THREADS_PER_CORE-1:0];
+    wire [7:0] alu_out[THREADS_PER_CORE-1:0];
     
     // DECODER
     reg [3:0] decoded_rd_address;
@@ -78,7 +72,7 @@ module core #(
         .clk(clk),
         .reset(reset),
         .core_state(core_state),
-        .current_pc(warp_pc[current_warp_id]),
+        .current_pc(current_pc),
         .mem_read_valid(program_mem_read_valid),
         .mem_read_address(program_mem_read_address),
         .mem_read_ready(program_mem_read_ready),
@@ -108,11 +102,9 @@ module core #(
         .decoded_ret(decoded_ret)
     );
 
-    warps #(
-        .THREADS_PER_WARP(THREADS_PER_WARP),
-        .MAX_WARPS_PER_CORE(MAX_WARPS_PER_CORE),
-        .THREAD_ID_BITS(THREAD_ID_BITS)
-    ) warp_scheduler (
+    manager #(
+        .THREADS_PER_CORE(THREADS_PER_CORE),
+    ) manager_instance (
         .clk(clk),
         .reset(reset),
         .start(start),
@@ -122,16 +114,14 @@ module core #(
         .decoded_mem_write_enable(decoded_mem_write_enable),
         .decoded_ret(decoded_ret),
         .lsu_state(lsu_state),
-        .thread_count(thread_count),
-        .warp_pc(warp_pc),
+        .current_pc(current_pc),
         .next_pc(next_pc),
-        .current_warp_id(current_warp_id),
         .done(done)
     );
 
     genvar i;
     generate
-        for (i = 0; i < THREADS_PER_WARP; i = i + 1) begin : threads
+        for (i = 0; i < THREADS_PER_CORE; i = i + 1) begin : threads
             alu alu_instance (
                 .clk(clk),
                 .reset(reset),
@@ -166,7 +156,7 @@ module core #(
             registers #(
                 .BLOCK_ID(CORE_ID),
                 .THREAD_ID(i),
-                .DATA_BITS(DATA_MEM_DATA_BITS)
+                .DATA_BITS(DATA_MEM_DATA_BITS),
             ) register_instance (
                 .clk(clk),
                 .reset(reset),
@@ -196,7 +186,7 @@ module core #(
                 .decoded_nzp_write_enable(decoded_nzp_write_enable),
                 .decoded_pc_mux(decoded_pc_mux),
                 .alu_out(alu_out[i]),
-                .current_pc(warp_pc[current_warp_id]),
+                .current_pc(current_pc),
                 .next_pc(next_pc[i])
             );
         end

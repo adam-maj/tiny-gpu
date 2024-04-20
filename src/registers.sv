@@ -2,9 +2,9 @@
 `timescale 1ns/1ns
 
 module registers #(
-    parameter BLOCK_ID = 0,
-    parameter THREAD_ID = 0,
-    parameter DATA_BITS = 8
+    parameter BLOCK_ID,
+    parameter THREAD_ID,
+    parameter DATA_BITS
 ) (
     input wire clk,
     input wire reset,
@@ -55,6 +55,7 @@ module registers #(
             registers[14] <= block_dim;
             registers[15] <= THREAD_ID;
         end else begin 
+            // Shouldn't need to set these every cycle
             registers[14] <= block_dim;
             
             // Fill rs/rt when core_state = REQUEST

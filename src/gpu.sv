@@ -11,7 +11,9 @@ TODO:
 > Make a video of the processing with a terminal progress bar of requests process + parallelization
 
 OPTIONAL:
+> Change every wire to a register
 > Make the device control register it's own unit?
+> Reduce latencies in signal transfers
 
 STYLE:
 > Make state names all similar
@@ -28,8 +30,7 @@ module gpu #(
     parameter PROGRAM_MEM_ADDR_BITS = 8,
     parameter PROGRAM_MEM_DATA_BITS = 16,
     parameter NUM_CORES = 1,
-    parameter MAX_WARPS_PER_CORE = 2,
-    parameter THREADS_PER_WARP = 2
+    parameter THREADS_PER_CORE = 8
 ) (
     input wire clk,
     input wire reset,
@@ -76,21 +77,21 @@ module gpu #(
     endgenerate
 
     // MEMORY ACCESS
-    localparam NUM_LSUS = NUM_CORES * THREADS_PER_WARP;
-    wire [NUM_LSUS-1:0] lsu_read_valid;
-    wire [DATA_MEM_ADDR_BITS-1:0] lsu_read_address [NUM_LSUS-1:0];
-    wire [NUM_LSUS-1:0] lsu_read_ready;
-    wire [DATA_MEM_DATA_BITS-1:0] lsu_read_data [NUM_LSUS-1:0];
-    wire [NUM_LSUS-1:0] lsu_write_valid;
-    wire [DATA_MEM_ADDR_BITS-1:0] lsu_write_address [NUM_LSUS-1:0];
-    wire [DATA_MEM_DATA_BITS-1:0] lsu_write_data [NUM_LSUS-1:0];
-    wire [NUM_LSUS-1:0] lsu_write_ready;
+    localparam NUM_LSUS = NUM_CORES * THREADS_PER_CORE;
+    reg [NUM_LSUS-1:0] lsu_read_valid;
+    reg [DATA_MEM_ADDR_BITS-1:0] lsu_read_address [NUM_LSUS-1:0];
+    reg [NUM_LSUS-1:0] lsu_read_ready;
+    reg [DATA_MEM_DATA_BITS-1:0] lsu_read_data [NUM_LSUS-1:0];
+    reg [NUM_LSUS-1:0] lsu_write_valid;
+    reg [DATA_MEM_ADDR_BITS-1:0] lsu_write_address [NUM_LSUS-1:0];
+    reg [DATA_MEM_DATA_BITS-1:0] lsu_write_data [NUM_LSUS-1:0];
+    reg [NUM_LSUS-1:0] lsu_write_ready;
 
     localparam NUM_FETCHERS = NUM_CORES;
-    wire [NUM_FETCHERS-1:0] fetcher_read_valid;
-    wire [PROGRAM_MEM_ADDR_BITS-1:0] fetcher_read_address [NUM_FETCHERS-1:0];
-    wire [NUM_FETCHERS-1:0] fetcher_read_ready;
-    wire [PROGRAM_MEM_DATA_BITS-1:0] fetcher_read_data [NUM_FETCHERS-1:0];
+    reg [NUM_FETCHERS-1:0] fetcher_read_valid;
+    reg [PROGRAM_MEM_ADDR_BITS-1:0] fetcher_read_address [NUM_FETCHERS-1:0];
+    reg [NUM_FETCHERS-1:0] fetcher_read_ready;
+    reg [PROGRAM_MEM_DATA_BITS-1:0] fetcher_read_data [NUM_FETCHERS-1:0];
     
     // MEMORY CONTROLLERS
     controller #(
@@ -125,7 +126,8 @@ module gpu #(
     controller #(
         .ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
         .DATA_BITS(PROGRAM_MEM_DATA_BITS),
-        .NUM_CONSUMERS(NUM_FETCHERS)
+        .NUM_CONSUMERS(NUM_FETCHERS),
+        .WRITE_ENABLE(0)
     ) program_memory_controller (
         .clk(clk),
         .reset(reset),
@@ -147,26 +149,26 @@ module gpu #(
     genvar i;
     generate
         for (i = 0; i < NUM_CORES; i = i + 1) begin : cores
-            reg [THREADS_PER_WARP-1:0] core_lsu_read_valid;
-            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_read_address [THREADS_PER_WARP-1:0];
-            reg [THREADS_PER_WARP-1:0] core_lsu_read_ready;
-            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_read_data [THREADS_PER_WARP-1:0];
-            reg [THREADS_PER_WARP-1:0] core_lsu_write_valid;
-            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_write_address [THREADS_PER_WARP-1:0];
-            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_write_data [THREADS_PER_WARP-1:0];
-            reg [THREADS_PER_WARP-1:0] core_lsu_write_ready;
+            reg [THREADS_PER_CORE-1:0] core_lsu_read_valid;
+            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_read_address [THREADS_PER_CORE-1:0];
+            reg [THREADS_PER_CORE-1:0] core_lsu_read_ready;
+            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_read_data [THREADS_PER_CORE-1:0];
+            reg [THREADS_PER_CORE-1:0] core_lsu_write_valid;
+            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_write_address [THREADS_PER_CORE-1:0];
+            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_write_data [THREADS_PER_CORE-1:0];
+            reg [THREADS_PER_CORE-1:0] core_lsu_write_ready;
 
             genvar j;
-            for (j = 0; j < THREADS_PER_WARP; j = j + 1) begin
-                localparam lsu_index = i * THREADS_PER_WARP + j;
-                assign lsu_read_valid[lsu_index] = core_lsu_read_valid[j];
-                assign lsu_read_address[lsu_index] = core_lsu_read_address[j];
-
-                assign lsu_write_valid[lsu_index] = core_lsu_write_valid[j];
-                assign lsu_write_address[lsu_index] = core_lsu_write_address[j];
-                assign lsu_write_data[lsu_index] = core_lsu_write_data[j];
-
+            for (j = 0; j < THREADS_PER_CORE; j = j + 1) begin
+                localparam lsu_index = i * THREADS_PER_CORE + j;
                 always @(posedge clk) begin 
+                    lsu_read_valid[lsu_index] <= core_lsu_read_valid[j];
+                    lsu_read_address[lsu_index] <= core_lsu_read_address[j];
+
+                    lsu_write_valid[lsu_index] <= core_lsu_write_valid[j];
+                    lsu_write_address[lsu_index] <= core_lsu_write_address[j];
+                    lsu_write_data[lsu_index] <= core_lsu_write_data[j];
+                    
                     core_lsu_read_ready[j] <= lsu_read_ready[lsu_index];
                     core_lsu_read_data[j] <= lsu_read_data[lsu_index];
                     core_lsu_write_ready[j] <= lsu_write_ready[lsu_index];
@@ -178,8 +180,7 @@ module gpu #(
                 .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
                 .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS),
-                .MAX_WARPS_PER_CORE(MAX_WARPS_PER_CORE),
-                .THREADS_PER_WARP(THREADS_PER_WARP),
+                .THREADS_PER_CORE(THREADS_PER_CORE),
                 .CORE_ID(i)
             ) core_instance (
                 .clk(clk),

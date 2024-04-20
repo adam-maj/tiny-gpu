@@ -154,16 +154,19 @@ def format_fetcher_state(fetcher_state: str) -> str:
 def format_lsu_state(lsu_state: str) -> str:
     lsu_state_map = {
         "00": "IDLE",
-        "01": "WAITING",
-        "10": "DONE"
+        "01": "REQUESTING",
+        "10": "WAITING",
+        "11": "DONE"
     }
     return lsu_state_map[lsu_state]
 
 def format_memory_controller_state(controller_state: str) -> str:
     controller_state_map = {
-        "00": "IDLE",
-        "01": "WAITING",
-        "10": "RELAYING"
+        "000": "IDLE",
+        "010": "READ_WAITING",
+        "011": "WRITE_WAITING",
+        "100": "READ_RELAYING",
+        "101": "WRITE_RELAYING"
     }
     return controller_state_map[controller_state]
 
@@ -214,8 +217,10 @@ async def test_matrix_addition_kernel(dut):
     program_memory = MemoryInterface(dut=dut, addr_bits=8, data_bits=16, name="program")
     program_memory.load_program(program)
 
+    data_memory.display(24)
+
     dut.start.value = 1
-    for i in range(300):
+    for i in range(400):
         data_memory.run()
         program_memory.run()
 
@@ -229,58 +234,27 @@ async def test_matrix_addition_kernel(dut):
                 thread_idx = thread.register_instance.THREAD_ID.value
                 idx = block_idx * block_dim + thread_idx
 
-                rs = int(str(core.core_instance.rs[thread_idx].value), 2)
-                rt = int(str(core.core_instance.rt[thread_idx].value), 2)
+                rs = int(str(thread.register_instance.rs.value), 2)
+                rt = int(str(thread.register_instance.rt.value), 2)
 
                 reg_input_mux = int(str(core.core_instance.decoded_reg_input_mux.value), 2)
-                alu_out = int(str(core.core_instance.alu_out[thread_idx].value), 2)
-                lsu_out = int(str(core.core_instance.lsu_out[thread_idx].value), 2)
+                alu_out = int(str(thread.alu_instance.alu_out.value), 2)
+                lsu_out = int(str(thread.lsu_instance.lsu_out.value), 2)
                 constant = int(str(core.core_instance.decoded_immediate.value), 2)
 
                 if idx == 1:
                     logger.log("\n+--------------------+")
                     logger.log("Thread ID:", thread_idx)
-                    
-                    warp_pc_str = str(core.core_instance.warp_pc.value)
-                    warp_pc_values = [int(warp_pc_str[i:i+8], 2) for i in range(0, len(warp_pc_str), 8)]
-                    logger.log("PC:", warp_pc_values)
-                    
-                    logger.log("Warp ID:", str(core.core_instance.current_warp_id.value))
+                
+                    logger.log("PC:", int(str(core.core_instance.current_pc.value), 2))
                     logger.log("Instruction:", format_instruction(instruction))
                     logger.log("Core State:", format_core_state(str(core.core_instance.core_state.value)))
                     logger.log("Fetcher State:", format_fetcher_state(str(core.core_instance.fetcher_state.value)))
-
-                    lsu_state_str = str(core.core_instance.lsu_state.value)
-                    lsu_state_values = [lsu_state_str[i:i+2] for i in range(0, len(lsu_state_str), 2)]
-                    logger.log("LSU State:", format_lsu_state(lsu_state_values[thread_idx]))
-                    # logger.log("LSU Read Valid:", str(dut.lsu_read_valid))
-                    # logger.log("LSU Read Ready:", str(dut.lsu_read_ready))
-
-                    logger.log(
-                        "Program Memory Controller State:", 
-                        format_memory_controller_state(str(dut.program_memory_controller.controller_state.value))
-                    )
-                    logger.log(
-                        "Program Memory Consumer Read Valid:",
-                        str(dut.program_memory_controller.consumer_read_valid.value)
-                    )
-                    logger.log(
-                        "Program Memory Consumer Read Ready:",
-                        str(dut.program_memory_controller.consumer_read_ready.value)
-                    )
-                    logger.log(
-                        "Data Memory Controller State:", 
-                        format_memory_controller_state(str(dut.data_memory_controller.controller_state.value))
-                    )
-                    logger.log(
-                        "Data Memory Consumer Read Valid:",
-                        str(dut.data_memory_controller.consumer_read_valid.value)
-                    )
-                    logger.log(
-                        "Data Memory Consumer Read Ready:",
-                        str(dut.data_memory_controller.consumer_read_ready.value)
-                    )
-
+                    
+                    logger.log("LSU State:", format_lsu_state(str(thread.lsu_instance.lsu_state.value)))
+                    logger.log("LSU Read Address:", int(str(thread.lsu_instance.mem_read_address.value), 2))
+                    logger.log("LSU Read Data:", int(str(thread.lsu_instance.mem_read_data), 2))
+  
                     logger.log("Registers:", format_registers([str(item.value) for item in thread.register_instance.registers]))
                     logger.log(f"RS = {rs}, RT = {rt}")
 
