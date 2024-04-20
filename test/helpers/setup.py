@@ -25,7 +25,6 @@ async def setup(
     program_memory.load(program)
 
     # Load Data Memory
-    print("Loading data memory")
     data_memory.load(data)
 
     # Device Control Register
