@@ -33,7 +33,7 @@ module controller #(
     input wire mem_write_ready
 );
     // QUEUE
-    reg [NUM_CONSUMERS-1:0] request_pending;
+    wire [NUM_CONSUMERS-1:0] request_pending;
 
     // STATE
     localparam IDLE = 2'b00, WAITING = 2'b01, RELAYING = 2'b10;
@@ -45,9 +45,7 @@ module controller #(
     reg [DATA_BITS-1:0] response_data [NUM_CONSUMERS-1:0];
 
     // Keep queue and pending status up to date
-    always @(*) begin
-        request_pending = (consumer_read_valid | consumer_write_valid) & ~(consumer_read_ready | consumer_write_ready);
-    end
+    assign request_pending = (consumer_read_valid | consumer_write_valid) & ~(consumer_read_ready | consumer_write_ready);
 
     // Send requests to memory
     always @(posedge clk) begin

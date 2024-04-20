@@ -4,27 +4,29 @@
 module decoder (
     input wire clk,
     input wire reset,
-    input wire [15:0] instruction,
+
+    input reg [2:0] core_state,
+    input reg [15:0] instruction,
     
     // Values
-    output wire [3:0] decoded_rd_address,
-    output wire [3:0] decoded_rs_address,
-    output wire [3:0] decoded_rt_address,
-    output wire [2:0] decoded_nzp,
-    output wire [7:0] decoded_immediate,
+    output reg [3:0] decoded_rd_address,
+    output reg [3:0] decoded_rs_address,
+    output reg [3:0] decoded_rt_address,
+    output reg [2:0] decoded_nzp,
+    output reg [7:0] decoded_immediate,
     
     // Signals
-    output wire decoded_reg_write_enable,           // Enable writing to a register
-    output wire decoded_mem_read_enable,            // Enable reading from memory
-    output wire decoded_mem_write_enable,           // Enable writing to memory
-    output wire decoded_nzp_write_enable,           // Enable writing to NZP register
-    output wire [1:0] decoded_reg_input_mux,        // Select input to register
-    output wire [1:0] decoded_alu_arithmetic_mux,   // Select arithmetic operation
-    output wire decoded_alu_output_mux,             // Select operation in ALU
-    output wire decoded_pc_mux,                     // Select source of next PC
+    output reg decoded_reg_write_enable,           // Enable writing to a register
+    output reg decoded_mem_read_enable,            // Enable reading from memory
+    output reg decoded_mem_write_enable,           // Enable writing to memory
+    output reg decoded_nzp_write_enable,           // Enable writing to NZP register
+    output reg [1:0] decoded_reg_input_mux,        // Select input to register
+    output reg [1:0] decoded_alu_arithmetic_mux,   // Select arithmetic operation
+    output reg decoded_alu_output_mux,             // Select operation in ALU
+    output reg decoded_pc_mux,                     // Select source of next PC
 
     // Done
-    output wire decoded_done
+    output reg decoded_ret
 );
     localparam NOP = 4'b0000,
         BRnzp = 4'b0001,
@@ -38,45 +40,89 @@ module decoder (
         CONST = 4'b1001,
         RET = 4'b1111;
 
-    assign decoded_reg_write_enable = reset 
-        ? 0
-        : ((instruction[15:12] == ADD) 
-            || (instruction[15:12] == SUB) 
-            || (instruction[15:12] == MUL) 
-            || (instruction[15:12] == DIV) 
-            || (instruction[15:12] == CONST));
-    assign decoded_mem_read_enable = reset 
-        ? 0
-        : (instruction[15:12] == LDR);
-    assign decoded_mem_write_enable = reset 
-        ? 0 
-        : (instruction[15:12] == STR);
-    assign decoded_nzp_write_enable = reset 
-        ? 0 
-        : (instruction[15:12] == CMP);
-    assign decoded_reg_input_mux = reset 
-        ? 0 
-        : ((instruction[15:12] == CONST) ? 2'b10 : 2'b00);
-    assign decoded_alu_arithmetic_mux = reset 
-        ? 0 
-        : ((instruction[15:12] == ADD) ? 2'b00 : 
-            (instruction[15:12] == SUB) ? 2'b01 : 
-            (instruction[15:12] == MUL) ? 2'b10 : 
-            (instruction[15:12] == DIV) ? 2'b11 : 0);
-    assign decoded_alu_output_mux = reset 
-        ? 0 
-        : (instruction[15:12] == CMP);
-    assign decoded_pc_mux = reset 
-        ? 0 
-        : (instruction[15:12] == BRnzp);
-    assign decoded_done = reset 
-        ? 0 
-        : (instruction[15:12] == RET);
+    always @(posedge clk) begin 
+        if (reset) begin 
+            decoded_rd_address <= 0;
+            decoded_rs_address <= 0;
+            decoded_rt_address <= 0;
+            decoded_immediate <= 0;
+            decoded_nzp <= 0;
+            decoded_reg_write_enable <= 0;
+            decoded_mem_read_enable <= 0;
+            decoded_mem_write_enable <= 0;
+            decoded_nzp_write_enable <= 0;
+            decoded_reg_input_mux <= 0;
+            decoded_alu_arithmetic_mux <= 0;
+            decoded_alu_output_mux <= 0;
+            decoded_pc_mux <= 0;
+            decoded_ret <= 0;
+        end else begin 
+            // Decode when core_state = DECODE
+            if (core_state == 3'b010) begin 
+                decoded_rd_address <= instruction[11:8];
+                decoded_rs_address <= instruction[7:4];
+                decoded_rt_address <= instruction[3:0];
+                decoded_immediate <= instruction[7:0];
+                decoded_nzp <= instruction[11:9];
 
-    assign decoded_rd_address = instruction[11:8];
-    assign decoded_rs_address = instruction[7:4];
-    assign decoded_rt_address = instruction[3:0];
-    assign decoded_immediate = instruction[7:0];
-    assign decoded_nzp = instruction[11:9];
+                decoded_reg_write_enable <= 0;
+                decoded_mem_read_enable <= 0;
+                decoded_mem_write_enable <= 0;
+                decoded_nzp_write_enable <= 0;
+                decoded_reg_input_mux <= 0;
+                decoded_alu_arithmetic_mux <= 0;
+                decoded_alu_output_mux <= 0;
+                decoded_pc_mux <= 0;
+                decoded_ret <= 0;
 
+                case (instruction[15:12])
+                    NOP: begin 
+                        // no-op
+                    end
+                    BRnzp: begin 
+                        decoded_pc_mux <= 1;
+                    end
+                    CMP: begin 
+                        decoded_alu_output_mux <= 1;
+                        decoded_nzp_write_enable <= 1;
+                    end
+                    ADD: begin 
+                        decoded_reg_write_enable <= 1;
+                        decoded_reg_input_mux <= 2'b00;
+                        decoded_alu_arithmetic_mux <= 2'b00;
+                    end
+                    SUB: begin 
+                        decoded_reg_write_enable <= 1;
+                        decoded_reg_input_mux <= 2'b00;
+                        decoded_alu_arithmetic_mux <= 2'b01;
+                    end
+                    MUL: begin 
+                        decoded_reg_write_enable <= 1;
+                        decoded_reg_input_mux <= 2'b00;
+                        decoded_alu_arithmetic_mux <= 2'b10;
+                    end
+                    DIV: begin 
+                        decoded_reg_write_enable <= 1;
+                        decoded_reg_input_mux <= 2'b00;
+                        decoded_alu_arithmetic_mux <= 2'b11;
+                    end
+                    LDR: begin 
+                        decoded_reg_write_enable <= 1;
+                        decoded_reg_input_mux <= 2'b01;
+                        decoded_mem_read_enable <= 1;
+                    end
+                    STR: begin 
+                        decoded_mem_write_enable <= 1;
+                    end
+                    CONST: begin 
+                        decoded_reg_write_enable <= 1;
+                        decoded_reg_input_mux <= 2'b10;
+                    end
+                    RET: begin 
+                        decoded_ret <= 1;
+                    end
+                endcase
+            end
+        end
+    end
 endmodule

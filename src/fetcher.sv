@@ -2,68 +2,55 @@
 `timescale 1ns/1ns
 
 module fetcher #(
-    parameter ADDRESS_BITS = 8,
-    parameter DRAWER_BITS = 16
+    parameter PROGRAM_MEM_ADDR_BITS = 8,
+    parameter PROGRAM_MEM_DATA_BITS = 16
 ) (
     input wire clk,
     input wire reset,
     
-    input wire fetch_enable,
-    input wire [ADDRESS_BITS-1:0] current_pc,
-
-    input wire decoded_mem_read_enable,
-    input wire decoded_mem_write_enable,
+    input reg [2:0] core_state,
+    input reg [7:0] current_pc,
 
     output reg mem_read_valid,
-    output reg [ADDRESS_BITS-1:0] mem_read_address,
+    output reg [PROGRAM_MEM_ADDR_BITS-1:0] mem_read_address,
     input reg mem_read_ready,
-    input reg [DRAWER_BITS-1:0] mem_read_data,
+    input reg [PROGRAM_MEM_DATA_BITS-1:0] mem_read_data,
 
-    output instruction_ready,
-    output [DRAWER_BITS-1:0] instruction
+    output reg [2:0] fetcher_state,
+    output reg [PROGRAM_MEM_DATA_BITS-1:0] instruction,
 );
-    localparam IDLE = 2'b00, FETCHING = 2'b01, FETCHED = 2'b10, PROCESSING = 2'b11;
-    reg [1:0] state = IDLE;
-    reg [DRAWER_BITS-1:0] instruction_buffer;
-    assign instruction_ready = (state == FETCHED) || (state == PROCESSING);
-    assign instruction = (state == FETCHED) ? instruction_buffer : 16'b0;
-
+    localparam IDLE = 3'b000, 
+        FETCHING = 3'b001, 
+        FETCHED = 3'b010;
+    
     always @(posedge clk) begin
         if (reset) begin
-            state <= IDLE;
+            fetcher_state <= IDLE;
             mem_read_valid <= 0;
-            instruction_buffer <= {DRAWER_BITS{1'b0}};
+            mem_read_address <= 0;
+            instruction <= {PROGRAM_MEM_DATA_BITS{1'b0}};
         end else begin
-            case (state)
+            case (fetcher_state)
                 IDLE: begin
-                    if (fetch_enable) begin
+                    // Fetch when core_state = FETCH
+                    if (core_state == 3'b001) begin
+                        fetcher_state <= FETCHING;
                         mem_read_valid <= 1;
                         mem_read_address <= current_pc;
-                        state <= FETCHING;
                     end
                 end
                 FETCHING: begin
+                    // Wait for response from memory
                     if (mem_read_ready) begin
-                        instruction_buffer <= mem_read_data;
+                        fetcher_state <= FETCHED;
+                        instruction <= mem_read_data;
                         mem_read_valid <= 0;
-                        state <= FETCHED;
                     end
                 end
                 FETCHED: begin
-                    // if (decoded_mem_read_enable || decoded_mem_write_enable) begin 
-                    //     // If we're interfacing with memory, we can't just switch immediately
-                    //     state <= PROCESSING;
-                    // end else begin
-                    //     // Otherwise 1 cycle is enough for all processing
-                    //     state <= IDLE;
-                    // end
-                    // Allow 1 cycle for the warp state to switch off fetching
-                    state <= PROCESSING;
-                end
-                PROCESSING: begin 
-                    // If we're here, wait for the LSU to finish processing (fetch_enable again)
-                    if (fetch_enable) begin 
-                        state <= IDLE;
+                    // Reset when core_state = DECODE
+                    if (core_state == 3'b010) begin 
+                        fetcher_state <= IDLE;
                     end
                 end
             endcase

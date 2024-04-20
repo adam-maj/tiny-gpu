@@ -6,7 +6,7 @@ module gpu #(
     parameter DATA_MEM_DATA_BITS = 8,
     parameter PROGRAM_MEM_ADDR_BITS = 8,
     parameter PROGRAM_MEM_DATA_BITS = 16,
-    parameter NUM_CORES = 2,
+    parameter NUM_CORES = 1,
     parameter MAX_WARPS_PER_CORE = 2,
     parameter THREADS_PER_WARP = 2
 ) (
@@ -126,27 +126,30 @@ module gpu #(
     genvar i;
     generate
         for (i = 0; i < NUM_CORES; i = i + 1) begin : cores
-            wire [THREADS_PER_WARP-1:0] core_lsu_read_valid;
-            wire [DATA_MEM_ADDR_BITS-1:0] core_lsu_read_address [THREADS_PER_WARP-1:0];
-            wire [THREADS_PER_WARP-1:0] core_lsu_read_ready;
-            wire [DATA_MEM_DATA_BITS-1:0] core_lsu_read_data [THREADS_PER_WARP-1:0];
-            wire [THREADS_PER_WARP-1:0] core_lsu_write_valid;
-            wire [DATA_MEM_ADDR_BITS-1:0] core_lsu_write_address [THREADS_PER_WARP-1:0];
-            wire [DATA_MEM_DATA_BITS-1:0] core_lsu_write_data [THREADS_PER_WARP-1:0];
-            wire [THREADS_PER_WARP-1:0] core_lsu_write_ready;
+            reg [THREADS_PER_WARP-1:0] core_lsu_read_valid;
+            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_read_address [THREADS_PER_WARP-1:0];
+            reg [THREADS_PER_WARP-1:0] core_lsu_read_ready;
+            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_read_data [THREADS_PER_WARP-1:0];
+            reg [THREADS_PER_WARP-1:0] core_lsu_write_valid;
+            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_write_address [THREADS_PER_WARP-1:0];
+            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_write_data [THREADS_PER_WARP-1:0];
+            reg [THREADS_PER_WARP-1:0] core_lsu_write_ready;
 
             genvar j;
             for (j = 0; j < THREADS_PER_WARP; j = j + 1) begin
                 localparam lsu_index = i * THREADS_PER_WARP + j;
                 assign lsu_read_valid[lsu_index] = core_lsu_read_valid[j];
                 assign lsu_read_address[lsu_index] = core_lsu_read_address[j];
-                assign core_lsu_read_ready[j] = lsu_read_ready[lsu_index];
-                assign core_lsu_read_data[j] = lsu_read_data[lsu_index];
 
                 assign lsu_write_valid[lsu_index] = core_lsu_write_valid[j];
                 assign lsu_write_address[lsu_index] = core_lsu_write_address[j];
                 assign lsu_write_data[lsu_index] = core_lsu_write_data[j];
-                assign core_lsu_write_ready[j] = lsu_write_ready[lsu_index];
+
+                always @(posedge clk) begin 
+                    core_lsu_read_ready[j] <= lsu_read_ready[lsu_index];
+                    core_lsu_read_data[j] <= lsu_read_data[lsu_index];
+                    core_lsu_write_ready[j] <= lsu_write_ready[lsu_index];
+                end
             end
 
             core #(

@@ -3,28 +3,39 @@
 
 module registers #(
     parameter BLOCK_ID = 0,
-    parameter THREAD_ID = 0
+    parameter THREAD_ID = 0,
+    parameter DATA_BITS = 8
 ) (
     input wire clk,
     input wire reset,
+
     input wire [7:0] block_dim,
+    input reg [2:0] core_state,
 
-    input wire [3:0] decoded_rd_address,
-    input wire [3:0] decoded_rs_address,
-    input wire [3:0] decoded_rt_address,
-    input wire decoded_reg_write_enable,
+    input reg decoded_reg_write_enable,
+    input reg [1:0] decoded_reg_input_mux,
+    input reg [3:0] decoded_rd_address,
+    input reg [3:0] decoded_rs_address,
+    input reg [3:0] decoded_rt_address,
 
-    input wire [7:0] rd,
-    output wire [7:0] rs,
-    output wire [7:0] rt
+    input reg [DATA_BITS-1:0] decoded_immediate,
+    input reg [DATA_BITS-1:0] alu_out,
+    input reg [DATA_BITS-1:0] lsu_out,
+
+    output reg [7:0] rs,
+    output reg [7:0] rt
 );
-    reg [7:0] registers[15:0];
+    localparam ARITHMETIC = 2'b00,
+        MEMORY = 2'b01,
+        CONSTANT = 2'b10;
 
-    assign rs = registers[decoded_rs_address];
-    assign rt = registers[decoded_rt_address];
+    reg [7:0] registers[15:0];
 
     always @(posedge clk) begin
         if (reset) begin
+            // Empty rs, rt
+            rs <= 0;
+            rt <= 0;
             // Initialize all free registers
             registers[0] <= 8'b0;
             registers[1] <= 8'b0;
@@ -44,12 +55,31 @@ module registers #(
             registers[14] <= block_dim;
             registers[15] <= THREAD_ID;
         end else begin 
-            if (decoded_reg_write_enable && decoded_rd_address < 13) begin
-                // Only allow writing to R0 - R12
-                registers[decoded_rd_address] <= rd;
+            registers[14] <= block_dim;
+            
+            // Fill rs/rt when core_state = REQUEST
+            if (core_state == 3'b011) begin 
+                rs <= registers[decoded_rs_address];
+                rt <= registers[decoded_rt_address];
             end
 
-            registers[14] <= block_dim;
+            // Store rd when core_state = UPDATE
+            if (core_state == 3'b110) begin 
+                // Only allow writing to R0 - R12
+                if (decoded_reg_write_enable && decoded_rd_address < 13) begin
+                    case (decoded_reg_input_mux)
+                        ARITHMETIC: begin 
+                            registers[decoded_rd_address] <= alu_out;
+                        end
+                        MEMORY: begin 
+                            registers[decoded_rd_address] <= lsu_out;
+                        end
+                        CONSTANT: begin 
+                            registers[decoded_rd_address] <= decoded_immediate;
+                        end
+                    endcase
+                end
+            end
         end
     end
 endmodule

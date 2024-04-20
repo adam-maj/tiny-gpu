@@ -1,6 +1,19 @@
+from typing import List
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, ClockCycles
+import datetime
+
+class Logger:
+    def __init__(self):
+        self.filename = f"test/logs/log_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.txt"
+
+    def log(self, *messages):
+        full_message = ' '.join(str(message) for message in messages)
+        with open(self.filename, "a") as log_file:
+            log_file.write(full_message + "\n")
+
+logger = Logger()
 
 class MemoryInterface:
     def __init__(self, dut, addr_bits, data_bits, name):
@@ -50,19 +63,19 @@ class MemoryInterface:
         pretty(rows, self.name, self.memory, decimal)
 
 def pretty(rows, name, data, decimal=True):
-    print("\n")
-    print(name.upper())
-    print("+" + "-" * (8 * 2 + 9) + "+")
-    print("| Addr | Data ")
-    print("+" + "-" * (8 * 2 + 9) + "+")
+    logger.log("\n")
+    logger.log(name.upper())
+    logger.log("+" + "-" * (8 * 2 + 9) + "+")
+    logger.log("| Addr | Data ")
+    logger.log("+" + "-" * (8 * 2 + 9) + "+")
     for i, data in enumerate(data):
         if i < rows:
             if decimal:
-                print(f"| {i:<4} | {data:<4} |")
+                logger.log(f"| {i:<4} | {data:<4} |")
             else:
                 data_bin = format(data, f'0{16}b')
-                print(f"| {i:<4} | {data_bin} |")
-    print("+" + "-" * (8 * 2 + 9) + "+")
+                logger.log(f"| {i:<4} | {data_bin} |")
+    logger.log("+" + "-" * (8 * 2 + 9) + "+")
 
 async def reset(dut):
     dut.reset.value = 1
@@ -73,6 +86,87 @@ async def setup(dut):
     clock = Clock(dut.clk, 25, units="us")
     cocotb.start_soon(clock.start())
     await reset(dut)
+
+def format_register(register: int) -> str:
+    if register < 13:
+        return f"R{register}"
+    if register == 13:
+        return f"%blockIdx"
+    if register == 14:
+        return f"%blockDim"
+    if register == 15:
+        return f"%threadIdx"
+
+def format_instruction(instruction: str) -> str:
+    opcode = instruction[0:4]
+    rd = format_register(int(instruction[4:8], 2))
+    rs = format_register(int(instruction[8:12], 2))
+    rt = format_register(int(instruction[12:16], 2))
+    n = "N" if instruction[4] == 1 else ""
+    z = "Z" if instruction[5] == 1 else ""
+    p = "P" if instruction[6] == 1 else ""
+    imm = f"#{int(instruction[8:16], 2)}"
+
+    if opcode == "0000":
+        return "NOP"
+    elif opcode == "0001":
+        return f"BRnzp {n}{z}{p}, {imm}"
+    elif opcode == "0010":
+        return f"CMP {rs}, {rt}"
+    elif opcode == "0011":
+        return f"ADD {rd}, {rs}, {rt}"
+    elif opcode == "0100":
+        return f"SUB {rd}, {rs}, {rt}"
+    elif opcode == "0101":
+        return f"MUL {rd}, {rs}, {rt}"
+    elif opcode == "0110":
+        return f"DIV {rd}, {rs}, {rt}"
+    elif opcode == "0111":
+        return f"LDR {rd}, {rs}"
+    elif opcode == "1000":
+        return f"STR {rs}, {rt}"
+    elif opcode == "1001":
+        return f"CONST {rd}, {imm}"
+    elif opcode == "1111":
+        return "RET"
+    return "UNKNOWN"
+
+def format_core_state(core_state: str) -> str:
+    core_state_map = {
+        "000": "IDLE",
+        "001": "FETCH",
+        "010": "DECODE",
+        "011": "REQUEST",
+        "100": "WAIT",
+        "101": "EXECUTE",
+        "110": "UPDATE"
+    }
+    return core_state_map[core_state]
+
+def format_fetcher_state(fetcher_state: str) -> str:
+    fetcher_state_map = {
+        "000": "IDLE",
+        "001": "FETCHING",
+        "010": "FETCHED"
+    }
+    return fetcher_state_map[fetcher_state]
+
+def format_lsu_state(lsu_state: str) -> str:
+    lsu_state_map = {
+        "00": "IDLE",
+        "01": "WAITING",
+        "10": "DONE"
+    }
+    return lsu_state_map[lsu_state]
+
+def format_registers(registers: List[str]) -> str:
+    formatted_registers = []
+    for i, reg_value in enumerate(registers):
+        decimal_value = int(reg_value, 2)  # Convert binary string to decimal
+        reg_idx = 15 - i # Register data is provided in reverse order
+        formatted_registers.append(f"R{reg_idx} = {decimal_value}")
+    formatted_registers.reverse()
+    return ', '.join(formatted_registers)
 
 @cocotb.test()
 async def test_matrix_addition_kernel(dut):
@@ -94,167 +188,72 @@ async def test_matrix_addition_kernel(dut):
         0b1111000000000000,
     ]
 
-    # Set threads in the DCR
+    # DCR
     dut.device_control_write_enable.value = 1
-    dut.device_control_data.value = 8 # 4 threads
+    dut.device_control_data.value = 8
     await RisingEdge(dut.clk)
     dut.device_control_write_enable.value = 0
 
-    # Load data into data memory
+    # Data
     data_memory = MemoryInterface(dut=dut, addr_bits=8, data_bits=8, name="data")
     matrix_a = [2, 3, 4, 5, 6, 7, 8, 9]
     matrix_b = [2, 3, 4, 5, 6, 7, 8, 9]
     for i, (a, b) in enumerate(zip(matrix_a, matrix_b)):
-        data_memory.write_data(i, a)  # Matrix A
-        data_memory.write_data(i + 8, b)  # Matrix B
+        data_memory.write_data(i, a)
+        data_memory.write_data(i + 8, b)
 
-    # Load program into program memory
+    # Program
     program_memory = MemoryInterface(dut=dut, addr_bits=8, data_bits=16, name="program")
     program_memory.load_program(program)
 
-    data_memory.display(24)
-    program_memory.display(13, decimal=False)
-
-    # Start execution
     dut.start.value = 1
-
-    # # Wait for done signal
-    cycles = 0
-    for i in range(500):
+    for i in range(300):
         data_memory.run()
         program_memory.run()
 
-        # Display relevant signals/changes in the circuit
         await cocotb.triggers.ReadOnly()
 
         for core in dut.cores:
-            instruction = core.core_instance.instruction.value
+            instruction = str(core.core_instance.instruction.value)
             for thread in core.core_instance.threads:
-                r = thread.register_instance.registers
                 block_idx = core.core_instance.CORE_ID.value
                 block_dim = int(core.core_instance.block_dim)
                 thread_idx = thread.register_instance.THREAD_ID.value
                 idx = block_idx * block_dim + thread_idx
 
-                rd = int(core.core_instance.rd[thread_idx].value)
-                rs = int(core.core_instance.rs[thread_idx].value)
-                rt = int(core.core_instance.rt[thread_idx].value)
+                rs = int(str(core.core_instance.rs[thread_idx].value), 2)
+                rt = int(str(core.core_instance.rt[thread_idx].value), 2)
 
-                def log(machine, assembly):
-                    if str(instruction) == machine:
-                        print("\n")
-                        print(assembly)
-                        print(f"Index: {idx}, Block: {block_idx}")
-                        print(f"rd = {rd}, rs = {rs}, rt = {rt}")
-                        reg_values = ""
-                        for i in range(16):
-                            reg_values += f"r{i} = {int(r[i].value)}, "
-                        print(reg_values)
-                        print("num warps:", int(core.core_instance.warp_scheduler.NUM_WARPS.value))
-                        print("core state:", core.core_instance.state.value)
-                
+                reg_input_mux = int(str(core.core_instance.decoded_reg_input_mux.value), 2)
+                alu_out = int(str(core.core_instance.alu_out[thread_idx].value), 2)
+                lsu_out = int(str(core.core_instance.lsu_out[thread_idx].value), 2)
+                constant = int(str(core.core_instance.decoded_immediate.value), 2)
+
                 if idx == 1:
-                    # print("current_warp_id", core.core_instance.current_warp_id.value)
-                    # if thread.lsu_instance.lsu_state.value != 0 and thread.lsu_instance.mem_read_ready.value == 1:
-                    #     print("\nlsu_state", thread.lsu_instance.lsu_state.value)
-                    #     print("instruction", core.core_instance.instruction.value)
-                    #     # print("lsu_out_reg", thread.lsu_instance.lsu_out_reg.value)
-                    #     # print("dmem_ctrl.consumer_read_ready", dut.data_memory_controller.consumer_read_ready.value)
-                    #     print("lsu_mem_read_ready", thread.lsu_instance.mem_read_ready.value)
-                    #     print("lsu_mem_read_data", thread.lsu_instance.mem_read_data.value)
-                    #     print("decoded_mem_read_enable", core.core_instance.warp_scheduler.decoded_mem_read_enable.value)
-                    #     print("warp_state", core.core_instance.warp_scheduler.state.value)
-                    #     waiting_for_lsu = 3
-                    # elif waiting_for_lsu > 0:
-                    #     print("\nlsu_state", thread.lsu_instance.lsu_state.value)
-                    #     # print("lsu_out_reg", thread.lsu_instance.lsu_out_reg.value)
-                    #     print("dmem_ctrl.consumer_read_ready", dut.data_memory_controller.consumer_read_ready.value)
-                    #     print("lsu_mem_read_ready", thread.lsu_instance.mem_read_ready.value)
-                    #     print("lsu_mem_read_data", thread.lsu_instance.mem_read_data.value)
-                    #     print("decoded_mem_read_enable", core.core_instance.warp_scheduler.decoded_mem_read_enable.value)
-                    #     print("warp_state", core.core_instance.warp_scheduler.state.value)
-                    #     waiting_for_lsu -= 1
-
-                    # print("lsu_state", thread.lsu_instance.lsu_state.value)
-                    # log("0101000011011110", "MUL R0, $blockIdx, $blockDim")
-
-                    if core.core_instance.warp_scheduler.decoded_mem_read_enable.value != 0:
-                        print("\nDETECTED_decoded_mem_read_enable", core.core_instance.warp_scheduler.decoded_mem_read_enable.value)
-
-                    if str(instruction).startswith("0111") or cycles > 0:
-                        print("\nCYCLE:", cycles)
-                        print("instruction:", instruction)
-                        print("core state:", core.core_instance.state.value)
-                        print("fetcher state:", core.core_instance.fetcher_instance.state.value)
-                        print("lsu state:", thread.lsu_instance.lsu_state.value)
-                        print("decoded_mem_read_enable", core.core_instance.warp_scheduler.decoded_mem_read_enable.value)
-                        print("decoded_mem_write_enable", core.core_instance.warp_scheduler.decoded_mem_write_enable.value)
-
-                        if not str(instruction).startswith("0111"):
-                            cycles -= 1
-                        else:
-                            cycles = 5
+                    logger.log("\n+--------------------+")
+                    logger.log("Thread ID:", thread_idx)
                     
+                    warp_pc_str = str(core.core_instance.warp_pc.value)
+                    warp_pc_values = [int(warp_pc_str[i:i+8], 2) for i in range(0, len(warp_pc_str), 8)]
+                    logger.log("PC:", warp_pc_values)
+                    
+                    logger.log("Warp ID:", str(core.core_instance.current_warp_id.value))
+                    logger.log("Instruction:", format_instruction(instruction))
+                    logger.log("Core State:", format_core_state(str(core.core_instance.core_state.value)))
+                    logger.log("Fetcher State:", format_fetcher_state(str(core.core_instance.fetcher_state.value)))
 
-                    log("0011000000001111", "ADD R0, R0, $threadIdx")
+                    lsu_state_str = str(core.core_instance.lsu_state.value)
+                    lsu_state_values = [lsu_state_str[i:i+2] for i in range(0, len(lsu_state_str), 2)]
+                    logger.log("LSU State:", format_lsu_state(lsu_state_values[thread_idx]))
+                    logger.log("Registers:", format_registers([str(item.value) for item in thread.register_instance.registers]))
+                    logger.log(f"RS = {rs}, RT = {rt}")
 
-                    log("1001000100000000", f"CONST R1, #{int(core.core_instance.decoder_instance.decoded_immediate.value)}")
-                    log("1001001000001000", f"CONST R2, #{int(core.core_instance.decoder_instance.decoded_immediate.value)}")
-                    log("1001001100010000", f"CONST R3, #{int(core.core_instance.decoder_instance.decoded_immediate.value)}")
-
-                    log("0011010000010000", "ADD R4, R1, R0")
-                    log("0111010001000000", "LDR R4, R4")
-
-                    log("0011010100100000", "ADD R5, R2, R0")
-                    log("0111010101010000", "LDR R5, R5")
-
-                    log("0011011001000101", "ADD R6, R4, R5")
-                    log("0011011100110000", "ADD R7, R3, R0")
-
-                    log("1000000001110110", "STR R7, R6")
-
-        if False:
-            print("+---------------------+")
-            # print(f"TIME - {cocotb.utils.get_sim_time('ns')} ns")
-            # print(f"THREAD COUNT - {dut.cores[0].core_instance.thread_count.value}")
-            # print(f"NUM WARPS - {dut.cores[0].core_instance.warp_scheduler.NUM_WARPS.value}")
-            # print(f"CURRENT PC - {dut.cores[0].core_instance.warp_pc[0].value}")
-            print(f"CURRENT PC - {[item.value for item in dut.cores[0].core_instance.warp_pc]}")
-            # print(f"CURRENT WARP ID - {dut.cores[0].core_instance.current_warp_id.value}")
-            # print(f"NUM WARPS - {dut.cores[0].core_instance.warp_scheduler.NUM_WARPS.value}")
-            # print(f"DECODED DONE - {dut.cores[0].core_instance.warp_scheduler.decoded_done.value}")
-            print(f"INSTRUCTION - {dut.cores[0].core_instance.instruction.value}")
-            # print(f"ALU OUT - {[item.value for item in dut.cores[0].core_instance.alu_out]}")
-            # print(f"NEXT PC - {dut.cores[0].core_instance.next_pc[0].value}")
-            print("NEXT PC - ", [item.value for item in dut.cores[0].core_instance.next_pc])
-            print("CORE DONE - ", dut.cores[0].core_instance.done)
-            # print(f"STATE - {dut.cores[0].core_instance.state.value}")
-            # print("pmem_ctrl.current_consumer", dut.program_memory_controller.current_consumer.value)
-            # print("pmem_ctrl.mem_read_valid", dut.program_memory_controller.mem_read_valid.value)
-            # print("pmem_ctrl.mem_read_address", dut.program_memory_controller.mem_read_address.value)
-            # print("pmem_ctrl.mem_read_ready", dut.program_memory_controller.mem_read_ready.value)
-            # print("pmem_ctrl.mem_read_data", dut.program_memory_controller.mem_read_data.value)
-            # print(f"FETCH ENABLE - {dut.cores[0].core_instance.fetcher_instance.fetch_enable.value}")
-            # print(f"FETCHER STATE - {dut.cores[0].core_instance.fetcher_instance.state.value}")
-            # print(f"GLOBAL PMEM READ VALID - {dut.program_mem_read_valid.value}")
-            # print(f"GLOBAL PMEM READ ADDRESS - {dut.program_mem_read_address.value}")
-            # print(f"GLOBAL PMEM READ READY - {dut.program_mem_read_ready.value}")
-            # print(f"GLOBAL PMEM READ DATA - {dut.program_mem_read_data.value}")
-            # print(f"PMEM READ VALID - {dut.cores[0].core_instance.program_mem_read_valid.value}")
-            # print(f"PMEM READ ADDRESS - {dut.cores[0].core_instance.program_mem_read_address.value}")
-            # print(f"PMEM READ READY - {dut.cores[0].core_instance.program_mem_read_ready.value}")
-            # print(f"PMEM READ DATA - {dut.cores[0].core_instance.program_mem_read_data.value}")
-            # print(f"GLOBAL MEM READ VALID - {dut.program_mem_read_valid.value}")
-            # print(f"GLOBAL MEM READ READY - {dut.program_mem_read_ready.value}")
-            # print(f"CONTROLLER_READ_VALID - {dut.program_mem_read_valid.value}")
-            # print(f"BLOCK DIM - {dut.cores[0].core_instance.threads[0].register_instance.block_dim.value}")
-            # print(f"R13 - {dut.cores[0].core_instance.threads[0].register_instance.registers[13].value}")
-            # print(f"R14 - {dut.cores[0].core_instance.threads[0].register_instance.registers[14].value}")
-            # print(f"R15 - {dut.cores[0].core_instance.threads[0].register_instance.registers[15].value}")
-            # print(f"RD - Address: {dut.cores[0].core_instance.decoded_rd_address}; Value: {dut.cores[0].core_instance.rd[0].value}")
-            # print(f"RS - Address: {dut.cores[0].core_instance.decoded_rs_address}; Value: {dut.cores[0].core_instance.rs[0].value}")
-            # print(f"RT - Address: {dut.cores[0].core_instance.decoded_rt_address}; Value: {dut.cores[0].core_instance.rt[0].value}")
-            # print(f"INSTRUCTION READY - {dut.cores[0].core_instance.instruction_ready.value}")
+                    if reg_input_mux == 0:
+                        logger.log("ALU Out:", alu_out)
+                    if reg_input_mux == 1:
+                        logger.log("LSU Out:", lsu_out)
+                    if reg_input_mux == 2:
+                        logger.log("Constant:", constant)
 
         await RisingEdge(dut.clk)
 
