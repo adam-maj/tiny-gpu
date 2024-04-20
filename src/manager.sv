@@ -82,7 +82,7 @@ module manager #(
                         core_state <= DONE;
                     end else begin 
                         // TODO: Branch divergence. For now assume all next_pc converge
-                        current_pc <= next_pc[0];
+                        current_pc <= next_pc[THREADS_PER_BLOCK-1];
 
                         // Update is synchronous so we move on after one cycle
                         core_state <= FETCH;

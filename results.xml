@@ -1,6 +1,0 @@
-<testsuites name="results">
-  <testsuite name="all" package="all">
-    <property name="random_seed" value="1713611769" />
-    <testcase name="test_matrix_addition_kernel" classname="test.test_gpu" file="/Users/adam/Documents/chips/tiny-gpu/test/test_gpu.py" lineno="186" time="0.11705493927001953" sim_time_ns="8450001.0" ratio_time="72188333.55257004" />
-  </testsuite>
-</testsuites>

@@ -3,12 +3,11 @@
 
 /**
 TODO:
-> Fix LSU infinitely in WAITING state with no response
-> Fix warp processing
-> Bump warp count and thread count
 > Pass through EDA
 > Get 3D visualization of GDS
 > Make a video of the processing with a terminal progress bar of requests process + parallelization
+> Increase memory bandwidth and memory controller bandwidth
+> Cleanup test case files
 
 OPTIONAL:
 > Change every wire to a register

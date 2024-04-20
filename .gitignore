@@ -1,2 +1,6 @@
+*/**/__pycache__
 build/
 test/logs
+
+.DS_Store
+results.xml
