@@ -159,6 +159,14 @@ def format_lsu_state(lsu_state: str) -> str:
     }
     return lsu_state_map[lsu_state]
 
+def format_memory_controller_state(controller_state: str) -> str:
+    controller_state_map = {
+        "00": "IDLE",
+        "01": "WAITING",
+        "10": "RELAYING"
+    }
+    return controller_state_map[controller_state]
+
 def format_registers(registers: List[str]) -> str:
     formatted_registers = []
     for i, reg_value in enumerate(registers):
@@ -245,6 +253,34 @@ async def test_matrix_addition_kernel(dut):
                     lsu_state_str = str(core.core_instance.lsu_state.value)
                     lsu_state_values = [lsu_state_str[i:i+2] for i in range(0, len(lsu_state_str), 2)]
                     logger.log("LSU State:", format_lsu_state(lsu_state_values[thread_idx]))
+                    # logger.log("LSU Read Valid:", str(dut.lsu_read_valid))
+                    # logger.log("LSU Read Ready:", str(dut.lsu_read_ready))
+
+                    logger.log(
+                        "Program Memory Controller State:", 
+                        format_memory_controller_state(str(dut.program_memory_controller.controller_state.value))
+                    )
+                    logger.log(
+                        "Program Memory Consumer Read Valid:",
+                        str(dut.program_memory_controller.consumer_read_valid.value)
+                    )
+                    logger.log(
+                        "Program Memory Consumer Read Ready:",
+                        str(dut.program_memory_controller.consumer_read_ready.value)
+                    )
+                    logger.log(
+                        "Data Memory Controller State:", 
+                        format_memory_controller_state(str(dut.data_memory_controller.controller_state.value))
+                    )
+                    logger.log(
+                        "Data Memory Consumer Read Valid:",
+                        str(dut.data_memory_controller.consumer_read_valid.value)
+                    )
+                    logger.log(
+                        "Data Memory Consumer Read Ready:",
+                        str(dut.data_memory_controller.consumer_read_ready.value)
+                    )
+
                     logger.log("Registers:", format_registers([str(item.value) for item in thread.register_instance.registers]))
                     logger.log(f"RS = {rs}, RT = {rt}")
 

@@ -1,6 +1,27 @@
 `default_nettype none
 `timescale 1ns/1ns
 
+/**
+TODO:
+> Fix LSU infinitely in WAITING state with no response
+> Fix warp processing
+> Bump warp count and thread count
+> Pass through EDA
+> Get 3D visualization of GDS
+> Make a video of the processing with a terminal progress bar of requests process + parallelization
+
+OPTIONAL:
+> Make the device control register it's own unit?
+
+STYLE:
+> Make state names all similar
+> Cleanup memory controller code
+> Make all parameters top level, including all bits values, and pass them all down 
+(write where relevant that parameters are used as constants not parameters)
+> Use packages for all state bearing localparams
+> Refactor to use SystemVerilog interfaces with modports if possible?
+**/
+
 module gpu #(
     parameter DATA_MEM_ADDR_BITS = 8,
     parameter DATA_MEM_DATA_BITS = 8,

@@ -38,9 +38,9 @@ module lsu (
             mem_write_address <= 0;
             mem_write_data <= 0;
         end else begin
-            if (decoded_mem_read_enable) begin 
-                case (lsu_state)
-                    IDLE: begin
+            case (lsu_state)
+                IDLE: begin
+                    if (decoded_mem_read_enable) begin 
                         // Only read when core_state = REQUEST
                         if (core_state == 3'b011) begin 
                             mem_read_valid <= 1;
@@ -48,25 +48,25 @@ module lsu (
                             lsu_state <= WAITING;
                         end
                     end
-                    WAITING: begin
-                        if (mem_read_ready == 1) begin
-                            mem_read_valid <= 0;
-                            lsu_out <= mem_read_data;
-                            lsu_state <= DONE;
-                        end
+                end
+                WAITING: begin
+                    if (mem_read_ready == 1) begin
+                        mem_read_valid <= 0;
+                        lsu_out <= mem_read_data;
+                        lsu_state <= DONE;
                     end
-                    DONE: begin 
-                        // Reset when core_state = UPDATE
-                        if (core_state == 3'b110) begin 
-                            lsu_state <= IDLE;
-                        end
+                end
+                DONE: begin 
+                    // Reset when core_state = UPDATE
+                    if (core_state == 3'b110) begin 
+                        lsu_state <= IDLE;
                     end
-                endcase
-            end
+                end
+            endcase
 
-            if (decoded_mem_write_enable) begin 
-                case (lsu_state)
-                    IDLE: begin
+            case (lsu_state)
+                IDLE: begin
+                    if (decoded_mem_write_enable) begin 
                         // Only read when core_state = REQUEST
                         if (core_state == 3'b011) begin 
                             mem_write_valid <= 1;
@@ -75,20 +75,20 @@ module lsu (
                             lsu_state <= WAITING;
                         end
                     end
-                    WAITING: begin
-                        if (mem_write_ready) begin
-                            mem_write_valid <= 0;
-                            lsu_state <= DONE;
-                        end
+                end
+                WAITING: begin
+                    if (mem_write_ready) begin
+                        mem_write_valid <= 0;
+                        lsu_state <= DONE;
                     end
-                    DONE: begin 
-                        // Reset when core_state = UPDATE
-                        if (core_state == 3'b110) begin 
-                            lsu_state <= IDLE;
-                        end
+                end
+                DONE: begin 
+                    // Reset when core_state = UPDATE
+                    if (core_state == 3'b110) begin 
+                        lsu_state <= IDLE;
                     end
-                endcase
-            end
+                end
+            endcase
         end
     end
 endmodule

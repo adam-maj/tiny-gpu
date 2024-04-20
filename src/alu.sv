@@ -27,8 +27,6 @@ module alu (
         if (reset) begin 
             alu_out_reg <= 8'b0;
         end else begin
-            alu_out_reg <= 8'b0;
-
             // Calculate alu_out when core_state = EXECUTE
             if (core_state == 3'b101) begin 
                 if (decoded_alu_output_mux == 1) begin 

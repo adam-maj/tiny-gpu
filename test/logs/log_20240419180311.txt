@@ -1,8 +1,0 @@
-
-+--------------------+
-Thread ID: 1
-PC: [0, 0]
-Warp ID: 0
-Instruction: NOP
-Core State: IDLE
-Fetcher State: IDLE
