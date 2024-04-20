@@ -5,15 +5,18 @@ from cocotb.triggers import RisingEdge, ClockCycles
 import datetime
 
 class Logger:
-    def __init__(self):
+    def __init__(self, enabled=True):
         self.filename = f"test/logs/log_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.txt"
+        self.enabled = enabled
 
     def log(self, *messages):
-        full_message = ' '.join(str(message) for message in messages)
-        with open(self.filename, "a") as log_file:
-            log_file.write(full_message + "\n")
+        if self.enabled:
+            full_message = ' '.join(str(message) for message in messages)
+            with open(self.filename, "a") as log_file:
+                log_file.write(full_message + "\n")
 
-logger = Logger()
+logger = Logger(enabled=False)
+default_logger = Logger()
 
 class MemoryInterface:
     def __init__(self, dut, addr_bits, data_bits, name):
@@ -63,19 +66,19 @@ class MemoryInterface:
         pretty(rows, self.name, self.memory, decimal)
 
 def pretty(rows, name, data, decimal=True):
-    logger.log("\n")
-    logger.log(name.upper())
-    logger.log("+" + "-" * (8 * 2 + 9) + "+")
-    logger.log("| Addr | Data ")
-    logger.log("+" + "-" * (8 * 2 + 9) + "+")
+    default_logger.log("\n")
+    default_logger.log(name.upper())
+    default_logger.log("+" + "-" * (8 * 2 + 9) + "+")
+    default_logger.log("| Addr | Data ")
+    default_logger.log("+" + "-" * (8 * 2 + 9) + "+")
     for i, data in enumerate(data):
         if i < rows:
             if decimal:
-                logger.log(f"| {i:<4} | {data:<4} |")
+                default_logger.log(f"| {i:<4} | {data:<4} |")
             else:
                 data_bin = format(data, f'0{16}b')
-                logger.log(f"| {i:<4} | {data_bin} |")
-    logger.log("+" + "-" * (8 * 2 + 9) + "+")
+                default_logger.log(f"| {i:<4} | {data_bin} |")
+    default_logger.log("+" + "-" * (8 * 2 + 9) + "+")
 
 async def reset(dut):
     dut.reset.value = 1
@@ -139,7 +142,8 @@ def format_core_state(core_state: str) -> str:
         "011": "REQUEST",
         "100": "WAIT",
         "101": "EXECUTE",
-        "110": "UPDATE"
+        "110": "UPDATE",
+        "111": "DONE"
     }
     return core_state_map[core_state]
 
@@ -217,56 +221,63 @@ async def test_matrix_addition_kernel(dut):
     program_memory = MemoryInterface(dut=dut, addr_bits=8, data_bits=16, name="program")
     program_memory.load_program(program)
 
+    default_logger.log("START DATA MEMORY:")
     data_memory.display(24)
 
     dut.start.value = 1
-    for i in range(400):
+    cycles = 0
+    while dut.done.value != 1:
         data_memory.run()
         program_memory.run()
 
         await cocotb.triggers.ReadOnly()
+        cycles += 1
 
         for core in dut.cores:
             instruction = str(core.core_instance.instruction.value)
             for thread in core.core_instance.threads:
-                block_idx = core.core_instance.CORE_ID.value
-                block_dim = int(core.core_instance.block_dim)
-                thread_idx = thread.register_instance.THREAD_ID.value
-                idx = block_idx * block_dim + thread_idx
+                if int(thread.i.value) < int(str(core.core_instance.thread_count.value), 2): # if enabled
+                    block_idx = core.core_instance.block_id.value
+                    block_dim = int(core.core_instance.THREADS_PER_BLOCK)
+                    thread_idx = thread.register_instance.THREAD_ID.value
+                    idx = block_idx * block_dim + thread_idx
 
-                rs = int(str(thread.register_instance.rs.value), 2)
-                rt = int(str(thread.register_instance.rt.value), 2)
+                    rs = int(str(thread.register_instance.rs.value), 2)
+                    rt = int(str(thread.register_instance.rt.value), 2)
 
-                reg_input_mux = int(str(core.core_instance.decoded_reg_input_mux.value), 2)
-                alu_out = int(str(thread.alu_instance.alu_out.value), 2)
-                lsu_out = int(str(thread.lsu_instance.lsu_out.value), 2)
-                constant = int(str(core.core_instance.decoded_immediate.value), 2)
+                    reg_input_mux = int(str(core.core_instance.decoded_reg_input_mux.value), 2)
+                    alu_out = int(str(thread.alu_instance.alu_out.value), 2)
+                    lsu_out = int(str(thread.lsu_instance.lsu_out.value), 2)
+                    constant = int(str(core.core_instance.decoded_immediate.value), 2)
 
-                if idx == 1:
-                    logger.log("\n+--------------------+")
-                    logger.log("Thread ID:", thread_idx)
-                
-                    logger.log("PC:", int(str(core.core_instance.current_pc.value), 2))
-                    logger.log("Instruction:", format_instruction(instruction))
-                    logger.log("Core State:", format_core_state(str(core.core_instance.core_state.value)))
-                    logger.log("Fetcher State:", format_fetcher_state(str(core.core_instance.fetcher_state.value)))
+                    if idx == 4:
+                        logger.log("\n+--------------------+")
+                        logger.log("Thread ID:", thread_idx)
+                        logger.log("Thread Count:", int(str(core.core_instance.thread_count.value), 2))
                     
-                    logger.log("LSU State:", format_lsu_state(str(thread.lsu_instance.lsu_state.value)))
-                    logger.log("LSU Read Address:", int(str(thread.lsu_instance.mem_read_address.value), 2))
-                    logger.log("LSU Read Data:", int(str(thread.lsu_instance.mem_read_data), 2))
-  
-                    logger.log("Registers:", format_registers([str(item.value) for item in thread.register_instance.registers]))
-                    logger.log(f"RS = {rs}, RT = {rt}")
+                        logger.log("PC:", int(str(core.core_instance.current_pc.value), 2))
+                        logger.log("Instruction:", format_instruction(instruction))
+                        logger.log("Core State:", format_core_state(str(core.core_instance.core_state.value)))
+                        logger.log("Fetcher State:", format_fetcher_state(str(core.core_instance.fetcher_state.value)))
+                        logger.log("LSU State:", format_lsu_state(str(thread.lsu_instance.lsu_state.value)))
 
-                    if reg_input_mux == 0:
-                        logger.log("ALU Out:", alu_out)
-                    if reg_input_mux == 1:
-                        logger.log("LSU Out:", lsu_out)
-                    if reg_input_mux == 2:
-                        logger.log("Constant:", constant)
+                        logger.log("Registers:", format_registers([str(item.value) for item in thread.register_instance.registers]))
+                        logger.log(f"RS = {rs}, RT = {rt}")
 
+                        if reg_input_mux == 0:
+                            logger.log("ALU Out:", alu_out)
+                        if reg_input_mux == 1:
+                            logger.log("LSU Out:", lsu_out)
+                        if reg_input_mux == 2:
+                            logger.log("Constant:", constant)
+
+                        logger.log("Core Done:", str(core.core_instance.done.value))
+        
         await RisingEdge(dut.clk)
 
+    default_logger.log(f"\nFinished in {cycles} cycles\n")
+
+    default_logger.log("FINAL DATA MEMORY:")
     data_memory.display(24)
 
     # # Verify results

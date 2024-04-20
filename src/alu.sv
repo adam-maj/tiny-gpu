@@ -5,6 +5,7 @@
 module alu (
     input wire clk,
     input wire reset,
+    input wire enable,
 
     input reg [2:0] core_state,
 
@@ -26,7 +27,7 @@ module alu (
     always @(posedge clk) begin 
         if (reset) begin 
             alu_out_reg <= 8'b0;
-        end else begin
+        end else if (enable) begin
             // Calculate alu_out when core_state = EXECUTE
             if (core_state == 3'b101) begin 
                 if (decoded_alu_output_mux == 1) begin 

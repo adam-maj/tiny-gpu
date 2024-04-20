@@ -2,14 +2,15 @@
 `timescale 1ns/1ns
 
 module registers #(
-    parameter BLOCK_ID,
+    parameter THREADS_PER_BLOCK,
     parameter THREAD_ID,
     parameter DATA_BITS
 ) (
     input wire clk,
     input wire reset,
+    input wire enable,
 
-    input wire [7:0] block_dim,
+    input reg [7:0] block_id,
     input reg [2:0] core_state,
 
     input reg decoded_reg_write_enable,
@@ -51,12 +52,12 @@ module registers #(
             registers[11] <= 8'b0;
             registers[12] <= 8'b0;
             // Initialize read-only registers
-            registers[13] <= BLOCK_ID;
-            registers[14] <= block_dim;
+            registers[13] <= 8'b0;
+            registers[14] <= THREADS_PER_BLOCK;
             registers[15] <= THREAD_ID;
-        end else begin 
-            // Shouldn't need to set these every cycle
-            registers[14] <= block_dim;
+        end else if (enable) begin 
+            // Shouldn't need to set this every cycle
+            registers[13] <= block_id;
             
             // Fill rs/rt when core_state = REQUEST
             if (core_state == 3'b011) begin 

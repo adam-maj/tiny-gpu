@@ -4,6 +4,7 @@
 module lsu (
     input wire clk,
     input wire reset,
+    input wire enable,
 
     input reg [2:0] core_state,
 
@@ -38,7 +39,7 @@ module lsu (
             mem_write_valid <= 0;
             mem_write_address <= 0;
             mem_write_data <= 0;
-        end else begin
+        end else if (enable) begin
             if (decoded_mem_read_enable) begin 
                 case (lsu_state)
                     IDLE: begin

@@ -7,6 +7,7 @@ module pc #(
 ) (
     input wire clk,
     input wire reset,
+    input wire enable,
 
     input reg [2:0] core_state,
 
@@ -25,7 +26,7 @@ module pc #(
         if (reset) begin
             nzp <= 3'b0;
             next_pc <= 0;
-        end else begin
+        end else if (enable) begin
             // Update PC when core_state = EXECUTE
             if (core_state == 3'b101) begin 
                 if (decoded_pc_mux == 1) begin 

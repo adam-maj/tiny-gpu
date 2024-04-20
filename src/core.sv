@@ -6,17 +6,16 @@ module core #(
     parameter DATA_MEM_DATA_BITS,
     parameter PROGRAM_MEM_ADDR_BITS,
     parameter PROGRAM_MEM_DATA_BITS,
-    parameter THREADS_PER_CORE,
-    parameter CORE_ID
+    parameter THREADS_PER_BLOCK
 ) (
     input wire clk,
     input wire reset,
     input wire start,
     output wire done,
 
-    // KERNEL METADATA
-    input wire [7:0] block_dim,
-    input wire [7:0] thread_count,
+    // METADATA
+    input wire [7:0] block_id,
+    input wire [$clog2(THREADS_PER_BLOCK):0] thread_count,
 
     // PROGRAM MEMORY
     output reg program_mem_read_valid,
@@ -25,15 +24,15 @@ module core #(
     input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
 
     // DATA MEMORY
-    output reg [THREADS_PER_CORE-1:0] data_mem_read_valid,
-    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_CORE-1:0],
-    input reg [THREADS_PER_CORE-1:0] data_mem_read_ready,
-    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_CORE-1:0],
+    output reg [THREADS_PER_BLOCK-1:0] data_mem_read_valid,
+    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_BLOCK-1:0],
+    input reg [THREADS_PER_BLOCK-1:0] data_mem_read_ready,
+    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_BLOCK-1:0],
 
-    output reg [THREADS_PER_CORE-1:0] data_mem_write_valid,
-    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_CORE-1:0],
-    output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_CORE-1:0],
-    input reg [THREADS_PER_CORE-1:0] data_mem_write_ready
+    output reg [THREADS_PER_BLOCK-1:0] data_mem_write_valid,
+    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_BLOCK-1:0],
+    output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_BLOCK-1:0],
+    input reg [THREADS_PER_BLOCK-1:0] data_mem_write_ready
 );
     // STATE
     reg [2:0] core_state;
@@ -42,12 +41,12 @@ module core #(
 
     // EXECUTION
     reg [7:0] current_pc;
-    wire [7:0] next_pc[THREADS_PER_CORE-1:0];
-    reg [7:0] rs[THREADS_PER_CORE-1:0];
-    reg [7:0] rt[THREADS_PER_CORE-1:0];
-    reg [1:0] lsu_state[THREADS_PER_CORE-1:0];
-    reg [7:0] lsu_out[THREADS_PER_CORE-1:0];
-    wire [7:0] alu_out[THREADS_PER_CORE-1:0];
+    wire [7:0] next_pc[THREADS_PER_BLOCK-1:0];
+    reg [7:0] rs[THREADS_PER_BLOCK-1:0];
+    reg [7:0] rt[THREADS_PER_BLOCK-1:0];
+    reg [1:0] lsu_state[THREADS_PER_BLOCK-1:0];
+    reg [7:0] lsu_out[THREADS_PER_BLOCK-1:0];
+    wire [7:0] alu_out[THREADS_PER_BLOCK-1:0];
     
     // DECODER
     reg [3:0] decoded_rd_address;
@@ -103,7 +102,7 @@ module core #(
     );
 
     manager #(
-        .THREADS_PER_CORE(THREADS_PER_CORE),
+        .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
     ) manager_instance (
         .clk(clk),
         .reset(reset),
@@ -121,10 +120,11 @@ module core #(
 
     genvar i;
     generate
-        for (i = 0; i < THREADS_PER_CORE; i = i + 1) begin : threads
+        for (i = 0; i < THREADS_PER_BLOCK; i = i + 1) begin : threads
             alu alu_instance (
                 .clk(clk),
                 .reset(reset),
+                .enable(i < thread_count),
                 .core_state(core_state),
                 .decoded_alu_arithmetic_mux(decoded_alu_arithmetic_mux),
                 .decoded_alu_output_mux(decoded_alu_output_mux),
@@ -136,6 +136,7 @@ module core #(
             lsu lsu_instance (
                 .clk(clk),
                 .reset(reset),
+                .enable(i < thread_count),
                 .core_state(core_state),
                 .decoded_mem_read_enable(decoded_mem_read_enable),
                 .decoded_mem_write_enable(decoded_mem_write_enable),
@@ -154,13 +155,14 @@ module core #(
             );
 
             registers #(
-                .BLOCK_ID(CORE_ID),
+                .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
                 .THREAD_ID(i),
                 .DATA_BITS(DATA_MEM_DATA_BITS),
             ) register_instance (
                 .clk(clk),
                 .reset(reset),
-                .block_dim(block_dim),
+                .enable(i < thread_count),
+                .block_id(block_id),
                 .core_state(core_state),
                 .decoded_reg_write_enable(decoded_reg_write_enable),
                 .decoded_reg_input_mux(decoded_reg_input_mux),
@@ -180,6 +182,7 @@ module core #(
             ) pc_instance (
                 .clk(clk),
                 .reset(reset),
+                .enable(i < thread_count),
                 .core_state(core_state),
                 .decoded_nzp(decoded_nzp),
                 .decoded_immediate(decoded_immediate),

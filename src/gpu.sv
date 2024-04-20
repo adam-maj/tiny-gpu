@@ -29,8 +29,8 @@ module gpu #(
     parameter DATA_MEM_DATA_BITS = 8,
     parameter PROGRAM_MEM_ADDR_BITS = 8,
     parameter PROGRAM_MEM_DATA_BITS = 16,
-    parameter NUM_CORES = 1,
-    parameter THREADS_PER_CORE = 8
+    parameter NUM_CORES = 2,
+    parameter THREADS_PER_BLOCK = 4
 ) (
     input wire clk,
     input wire reset,
@@ -60,24 +60,17 @@ module gpu #(
     // CONTROL
     reg [7:0] device_conrol_register;
     wire [7:0] thread_count;
-    wire [7:0] block_dim;
-    wire [7:0] block_thread_count [NUM_CORES-1:0];
-    wire [NUM_CORES-1:0] core_done;
-
     assign thread_count = device_conrol_register[7:0];
-    assign block_dim = (thread_count + NUM_CORES - 1) / NUM_CORES;
 
-    genvar j;
-    generate
-        for (j = 0; j < NUM_CORES; j = j + 1) begin : block_thread_count_assignment
-            assign block_thread_count[j] = (j == NUM_CORES - 1) 
-                ? (thread_count - (block_dim * j)) 
-                : block_dim;
-        end
-    endgenerate
+    // BLOCKS
+    reg [NUM_CORES-1:0] core_start;
+    reg [NUM_CORES-1:0] core_reset;
+    reg [NUM_CORES-1:0] core_done;
+    reg [7:0] core_block_id [NUM_CORES-1:0];
+    reg [$clog2(THREADS_PER_BLOCK):0] core_thread_count [NUM_CORES-1:0];
 
     // MEMORY ACCESS
-    localparam NUM_LSUS = NUM_CORES * THREADS_PER_CORE;
+    localparam NUM_LSUS = NUM_CORES * THREADS_PER_BLOCK;
     reg [NUM_LSUS-1:0] lsu_read_valid;
     reg [DATA_MEM_ADDR_BITS-1:0] lsu_read_address [NUM_LSUS-1:0];
     reg [NUM_LSUS-1:0] lsu_read_ready;
@@ -145,22 +138,38 @@ module gpu #(
         .mem_read_data(program_mem_read_data),
     );
 
+    dispatch #(
+        .NUM_CORES(NUM_CORES),
+        .THREADS_PER_BLOCK(THREADS_PER_BLOCK)
+    ) dispatch_instance (
+        .clk(clk),
+        .reset(reset),
+        .start(start),
+        .thread_count(thread_count),
+        .core_done(core_done),
+        .core_start(core_start),
+        .core_reset(core_reset),
+        .core_block_id(core_block_id),
+        .core_thread_count(core_thread_count),
+        .done(done)
+    );
+
     // CORES
     genvar i;
     generate
         for (i = 0; i < NUM_CORES; i = i + 1) begin : cores
-            reg [THREADS_PER_CORE-1:0] core_lsu_read_valid;
-            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_read_address [THREADS_PER_CORE-1:0];
-            reg [THREADS_PER_CORE-1:0] core_lsu_read_ready;
-            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_read_data [THREADS_PER_CORE-1:0];
-            reg [THREADS_PER_CORE-1:0] core_lsu_write_valid;
-            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_write_address [THREADS_PER_CORE-1:0];
-            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_write_data [THREADS_PER_CORE-1:0];
-            reg [THREADS_PER_CORE-1:0] core_lsu_write_ready;
+            reg [THREADS_PER_BLOCK-1:0] core_lsu_read_valid;
+            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_read_address [THREADS_PER_BLOCK-1:0];
+            reg [THREADS_PER_BLOCK-1:0] core_lsu_read_ready;
+            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_read_data [THREADS_PER_BLOCK-1:0];
+            reg [THREADS_PER_BLOCK-1:0] core_lsu_write_valid;
+            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_write_address [THREADS_PER_BLOCK-1:0];
+            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_write_data [THREADS_PER_BLOCK-1:0];
+            reg [THREADS_PER_BLOCK-1:0] core_lsu_write_ready;
 
             genvar j;
-            for (j = 0; j < THREADS_PER_CORE; j = j + 1) begin
-                localparam lsu_index = i * THREADS_PER_CORE + j;
+            for (j = 0; j < THREADS_PER_BLOCK; j = j + 1) begin
+                localparam lsu_index = i * THREADS_PER_BLOCK + j;
                 always @(posedge clk) begin 
                     lsu_read_valid[lsu_index] <= core_lsu_read_valid[j];
                     lsu_read_address[lsu_index] <= core_lsu_read_address[j];
@@ -180,15 +189,14 @@ module gpu #(
                 .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
                 .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS),
-                .THREADS_PER_CORE(THREADS_PER_CORE),
-                .CORE_ID(i)
+                .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
             ) core_instance (
                 .clk(clk),
-                .reset(reset),
-                .start(start),
+                .reset(core_reset[i]),
+                .start(core_start[i]),
                 .done(core_done[i]),
-                .block_dim(block_dim),
-                .thread_count(block_thread_count[i]),
+                .block_id(core_block_id[i]),
+                .thread_count(core_thread_count[i]),
                 
                 // Program Memory
                 .program_mem_read_valid(fetcher_read_valid[i]),
@@ -219,6 +227,4 @@ module gpu #(
             end
         end
     end
-
-    assign done = &(core_done);
 endmodule
