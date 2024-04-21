@@ -43,6 +43,8 @@ async def test_matadd(dut):
         threads=threads
     )
 
+    data_memory.display(24)
+
     cycles = 0
     while dut.done.value != 1:
         data_memory.run()

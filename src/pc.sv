@@ -32,6 +32,8 @@ module pc #(
                 if (decoded_pc_mux == 1) begin 
                     if (((nzp & decoded_nzp) != 3'b0)) begin 
                         next_pc <= decoded_immediate;
+                    end else begin 
+                        next_pc <= current_pc + 1;
                     end
                 end else begin 
                     next_pc <= current_pc + 1;
@@ -41,7 +43,9 @@ module pc #(
             // Store NZP when core_state = UPDATE   
             if (core_state == 3'b110) begin 
                 if (decoded_nzp_write_enable) begin
-                    nzp <= alu_out[2:0];
+                    nzp[2] <= alu_out[2];
+                    nzp[1] <= alu_out[1];
+                    nzp[0] <= alu_out[0];
                 end
             end      
         end

@@ -33,8 +33,5 @@ async def setup(
     await RisingEdge(dut.clk)
     dut.device_control_write_enable.value = 0
 
-    # Display
-    data_memory.display(24)
-
     # Start
     dut.start.value = 1
