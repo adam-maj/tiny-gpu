@@ -8,7 +8,7 @@ from .helpers.logger import logger
 @cocotb.test()
 async def test_matadd(dut):
     # Program Memory
-    program_memory = Memory(dut=dut, addr_bits=8, data_bits=16, name="program")
+    program_memory = Memory(dut=dut, addr_bits=8, data_bits=16, channels=1, name="program")
     program = [
         0b0101000011011110, # MUL R0, %blockIdx, %blockDim
         0b0011000000001111, # ADD R0, R0, %threadIdx         ; i = blockIdx * blockDim + threadIdx
@@ -42,7 +42,7 @@ async def test_matadd(dut):
     ]
 
     # Data Memory
-    data_memory = Memory(dut=dut, addr_bits=8, data_bits=8, name="data")
+    data_memory = Memory(dut=dut, addr_bits=8, data_bits=8, channels=4, name="data")
     data = [
         1, 2, 3, 4, # Matrix A (2 x 2)
         1, 2, 3, 4, # Matrix B (2 x 2)

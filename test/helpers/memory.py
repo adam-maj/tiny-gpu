@@ -2,11 +2,12 @@ from typing import List
 from .logger import logger
 
 class Memory:
-    def __init__(self, dut, addr_bits, data_bits, name):
+    def __init__(self, dut, addr_bits, data_bits, channels, name):
         self.dut = dut
         self.addr_bits = addr_bits
         self.data_bits = data_bits
         self.memory = [0] * (2**addr_bits)
+        self.channels = channels
         self.name = name
 
         self.mem_read_valid = getattr(dut, f"{name}_mem_read_valid")
@@ -21,21 +22,51 @@ class Memory:
             self.mem_write_ready = getattr(dut, f"{name}_mem_write_ready")
 
     def run(self):
-        if self.mem_read_valid.value == 1:
-            address = int(self.mem_read_address.value)
-            self.mem_read_data.value = self.memory[address]
-            self.mem_read_ready.value = 1
-        else:
-            self.mem_read_ready.value = 0
+        mem_read_valid = [
+            int(str(self.mem_read_valid.value)[i:i+1], 2)
+            for i in range(0, len(str(self.mem_read_valid.value)), 1)
+        ]
+
+        mem_read_address = [
+            int(str(self.mem_read_address.value)[i:i+self.addr_bits], 2)
+            for i in range(0, len(str(self.mem_read_address.value)), self.addr_bits)
+        ]
+        mem_read_ready = [0] * self.channels
+        mem_read_data = [0] * self.channels
+
+        for i in range(self.channels):
+            if mem_read_valid[i] == 1:
+                mem_read_data[i] = self.memory[mem_read_address[i]]
+                mem_read_ready[i] = 1
+            else:
+                mem_read_ready[i] = 0
+
+        self.mem_read_data.value = int(''.join(format(d, '0' + str(self.data_bits) + 'b') for d in mem_read_data), 2)
+        self.mem_read_ready.value = int(''.join(format(r, '01b') for r in mem_read_ready), 2)
 
         if self.name != "program":
-            if self.mem_write_valid.value == 1:
-                address = int(self.mem_write_address.value)
-                data = int(self.mem_write_data.value)
-                self.memory[address] = data
-                self.mem_write_ready.value = 1
-            else:
-                self.mem_write_ready.value = 0
+            mem_write_valid = [
+                int(str(self.mem_write_valid.value)[i:i+1], 2)
+                for i in range(0, len(str(self.mem_write_valid.value)), 1)
+            ]
+            mem_write_address = [
+                int(str(self.mem_write_address.value)[i:i+self.addr_bits], 2)
+                for i in range(0, len(str(self.mem_write_address.value)), self.addr_bits)
+            ]
+            mem_write_data = [
+                int(str(self.mem_write_data.value)[i:i+self.data_bits], 2)
+                for i in range(0, len(str(self.mem_write_data.value)), self.data_bits)
+            ]
+            mem_write_ready = [0] * self.channels
+
+            for i in range(self.channels):
+                if mem_write_valid[i] == 1:
+                    self.memory[mem_write_address[i]] = mem_write_data[i]
+                    mem_write_ready[i] = 1
+                else:
+                    mem_write_ready[i] = 0
+
+            self.mem_write_ready.value = int(''.join(format(w, '01b') for w in mem_write_ready), 2)
 
     def write(self, address, data):
         if address < len(self.memory):

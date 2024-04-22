@@ -131,11 +131,6 @@ def format_cycle(dut, cycle_id: int, thread_id: Optional[int] = None):
                     logger.debug("Registers:", format_registers([str(item.value) for item in thread.register_instance.registers]))
                     logger.debug(f"RS = {rs}, RT = {rt}")
 
-                    logger.debug("Dmem Controller State:",  format_memory_controller_state(str(dut.data_memory_controller.controller_state.value)))
-                    logger.debug("Dmem Current Consumer", str(dut.data_memory_controller.current_consumer.value))
-                    logger.debug("Dmem Channel Serving Consumer", str(dut.data_memory_controller.channel_serving_consumer.value))
-                    logger.debug("Dmem Controller Read Valid", str(dut.data_memory_controller.mem_read_valid.value))
-
                     if reg_input_mux == 0:
                         logger.debug("ALU Out:", alu_out)
                     if reg_input_mux == 1:
