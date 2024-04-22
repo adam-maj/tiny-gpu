@@ -1,14 +1,6 @@
 `default_nettype none
 `timescale 1ns/1ns
 
-/**
-TODO:
-> Make a video of the processing with a terminal progress bar of requests process + parallelization
-
-OPTIONAL:
-> Reduce latencies in signal transfers
-**/
-
 module gpu #(
     parameter DATA_MEM_ADDR_BITS = 8,
     parameter DATA_MEM_DATA_BITS = 8,
