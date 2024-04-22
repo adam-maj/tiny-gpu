@@ -4,18 +4,9 @@
 /**
 TODO:
 > Make a video of the processing with a terminal progress bar of requests process + parallelization
-> Increase memory bandwidth and memory controller bandwidth
 
 OPTIONAL:
-> Change every wire to a register
 > Reduce latencies in signal transfers
-
-STYLE:
-> Make state names all similar
-> Make all parameters top level, including all bits values, and pass them all down 
-(write where relevant that parameters are used as constants not parameters)
-> Use packages for all state bearing localparams
-> Refactor to use SystemVerilog interfaces with modports if possible?
 **/
 
 module gpu #(
@@ -40,18 +31,18 @@ module gpu #(
     // PROGRAM MEMORY
     output wire [PROGRAM_MEM_NUM_CHANNELS-1:0] program_mem_read_valid,
     output wire [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_read_address [PROGRAM_MEM_NUM_CHANNELS-1:0],
-    input reg [PROGRAM_MEM_NUM_CHANNELS-1:0] program_mem_read_ready,
-    input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data [PROGRAM_MEM_NUM_CHANNELS-1:0],
+    input wire [PROGRAM_MEM_NUM_CHANNELS-1:0] program_mem_read_ready,
+    input wire [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data [PROGRAM_MEM_NUM_CHANNELS-1:0],
 
     // DATA MEMORY
     output wire [DATA_MEM_NUM_CHANNELS-1:0] data_mem_read_valid,
     output wire [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [DATA_MEM_NUM_CHANNELS-1:0],
-    input reg [DATA_MEM_NUM_CHANNELS-1:0] data_mem_read_ready,
-    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [DATA_MEM_NUM_CHANNELS-1:0],
+    input wire [DATA_MEM_NUM_CHANNELS-1:0] data_mem_read_ready,
+    input wire [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [DATA_MEM_NUM_CHANNELS-1:0],
     output wire [DATA_MEM_NUM_CHANNELS-1:0] data_mem_write_valid,
     output wire [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [DATA_MEM_NUM_CHANNELS-1:0],
     output wire [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [DATA_MEM_NUM_CHANNELS-1:0],
-    input reg [DATA_MEM_NUM_CHANNELS-1:0] data_mem_write_ready
+    input wire [DATA_MEM_NUM_CHANNELS-1:0] data_mem_write_ready
 );
     // CONTROL
     wire [7:0] thread_count;
