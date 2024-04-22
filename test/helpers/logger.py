@@ -14,4 +14,4 @@ class Logger:
         with open(self.filename, "a") as log_file:
             log_file.write(full_message + "\n")
 
-logger = Logger(level="info")
+logger = Logger(level="debug")
