@@ -2,11 +2,11 @@
 `timescale 1ns/1ns
 
 module core #(
-    parameter DATA_MEM_ADDR_BITS,
-    parameter DATA_MEM_DATA_BITS,
-    parameter PROGRAM_MEM_ADDR_BITS,
-    parameter PROGRAM_MEM_DATA_BITS,
-    parameter THREADS_PER_BLOCK
+    parameter DATA_MEM_ADDR_BITS = 8,
+    parameter DATA_MEM_DATA_BITS = 8,
+    parameter PROGRAM_MEM_ADDR_BITS = 8,
+    parameter PROGRAM_MEM_DATA_BITS = 16,
+    parameter THREADS_PER_BLOCK = 4
 ) (
     input wire clk,
     input wire reset,

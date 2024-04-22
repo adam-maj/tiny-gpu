@@ -2,9 +2,9 @@
 `timescale 1ns/1ns
 
 module registers #(
-    parameter THREADS_PER_BLOCK,
-    parameter THREAD_ID,
-    parameter DATA_BITS
+    parameter THREADS_PER_BLOCK = 4,
+    parameter THREAD_ID = 0,
+    parameter DATA_BITS = 8
 ) (
     input wire clk,
     input wire reset,

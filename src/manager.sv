@@ -2,7 +2,7 @@
 `timescale 1ns/1ns
 
 module manager #(
-    parameter THREADS_PER_BLOCK,
+    parameter THREADS_PER_BLOCK = 4,
 ) (
     input wire clk,
     input wire reset,

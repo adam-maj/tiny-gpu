@@ -2,8 +2,8 @@
 `timescale 1ns/1ns
 
 module dispatch #(
-    parameter NUM_CORES,
-    parameter THREADS_PER_BLOCK
+    parameter NUM_CORES = 2,
+    parameter THREADS_PER_BLOCK = 4
 ) (
     input wire clk,
     input wire reset,
@@ -22,21 +22,13 @@ module dispatch #(
 
     reg [7:0] blocks_dispatched;
     reg [7:0] blocks_done;
-
-    initial begin
-        done <= 0;
-    end
-
-    always @(posedge start) begin 
-        for (int i = 0; i < NUM_CORES; i++) begin
-            core_reset[i] <= 1;
-        end
-    end
+    reg start_execution;
 
     always @(posedge clk) begin
         if (reset) begin
             blocks_dispatched <= 0;
             blocks_done <= 0;
+            start_execution <= 0;
 
             for (int i = 0; i < NUM_CORES; i++) begin
                 core_start[i] <= 0;
@@ -44,7 +36,16 @@ module dispatch #(
                 core_block_id[i] <= 0;
                 core_thread_count[i] <= THREADS_PER_BLOCK;
             end
-        end else if (start) begin            
+        end else if (start) begin    
+            // Indirect way to get posedge start without driving from 2 cycles
+            // TODO: Remove this ugly code
+            if (!start_execution) begin 
+                start_execution <= 1;
+                for (int i = 0; i < NUM_CORES; i++) begin
+                    core_reset[i] <= 1;
+                end
+            end
+
             if (blocks_done == total_blocks) begin 
                 done <= 1;
             end

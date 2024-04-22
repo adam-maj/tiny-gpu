@@ -3,6 +3,7 @@ from cocotb.triggers import RisingEdge
 from .helpers.setup import setup
 from .helpers.memory import Memory
 from .helpers.format import format_cycle
+from .helpers.logger import logger
 
 @cocotb.test()
 async def test_matadd(dut):
@@ -56,6 +57,7 @@ async def test_matadd(dut):
         await RisingEdge(dut.clk)
         cycles += 1
 
+    logger.info(f"Completed in {cycles} cycles")
     data_memory.display(24)
 
     expected_results = [a + b for a, b in zip(data[0:8], data[8:16])]
