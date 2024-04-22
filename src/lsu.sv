@@ -8,7 +8,6 @@ module lsu (
 
     input reg [2:0] core_state,
 
-    // TODO: Get rid of this
     input reg decoded_mem_read_enable,
     input reg decoded_mem_write_enable,
     

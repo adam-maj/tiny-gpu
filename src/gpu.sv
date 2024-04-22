@@ -3,20 +3,15 @@
 
 /**
 TODO:
-> Pass through EDA
-> Get 3D visualization of GDS
 > Make a video of the processing with a terminal progress bar of requests process + parallelization
 > Increase memory bandwidth and memory controller bandwidth
-> Cleanup test case files
 
 OPTIONAL:
 > Change every wire to a register
-> Make the device control register it's own unit?
 > Reduce latencies in signal transfers
 
 STYLE:
 > Make state names all similar
-> Cleanup memory controller code
 > Make all parameters top level, including all bits values, and pass them all down 
 (write where relevant that parameters are used as constants not parameters)
 > Use packages for all state bearing localparams
@@ -26,8 +21,10 @@ STYLE:
 module gpu #(
     parameter DATA_MEM_ADDR_BITS = 8,
     parameter DATA_MEM_DATA_BITS = 8,
+    parameter DATA_MEM_NUM_CHANNELS = 1,
     parameter PROGRAM_MEM_ADDR_BITS = 8,
     parameter PROGRAM_MEM_DATA_BITS = 16,
+    parameter PROGRAM_MEM_NUM_CHANNELS = 1,
     parameter NUM_CORES = 2,
     parameter THREADS_PER_BLOCK = 4
 ) (
@@ -41,20 +38,20 @@ module gpu #(
     input wire [7:0] device_control_data,
 
     // PROGRAM MEMORY
-    output wire program_mem_read_valid,
-    output wire [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_read_address,
-    input reg program_mem_read_ready,
-    input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
+    output wire [PROGRAM_MEM_NUM_CHANNELS-1:0] program_mem_read_valid,
+    output wire [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_read_address [PROGRAM_MEM_NUM_CHANNELS-1:0],
+    input reg [PROGRAM_MEM_NUM_CHANNELS-1:0] program_mem_read_ready,
+    input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data [PROGRAM_MEM_NUM_CHANNELS-1:0],
 
     // DATA MEMORY
-    output wire data_mem_read_valid,
-    output wire [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address,
-    input reg data_mem_read_ready,
-    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data,
-    output wire data_mem_write_valid,
-    output wire [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address,
-    output wire [DATA_MEM_DATA_BITS-1:0] data_mem_write_data,
-    input reg data_mem_write_ready
+    output wire [DATA_MEM_NUM_CHANNELS-1:0] data_mem_read_valid,
+    output wire [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [DATA_MEM_NUM_CHANNELS-1:0],
+    input reg [DATA_MEM_NUM_CHANNELS-1:0] data_mem_read_ready,
+    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [DATA_MEM_NUM_CHANNELS-1:0],
+    output wire [DATA_MEM_NUM_CHANNELS-1:0] data_mem_write_valid,
+    output wire [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [DATA_MEM_NUM_CHANNELS-1:0],
+    output wire [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [DATA_MEM_NUM_CHANNELS-1:0],
+    input reg [DATA_MEM_NUM_CHANNELS-1:0] data_mem_write_ready
 );
     // CONTROL
     wire [7:0] thread_count;
@@ -97,7 +94,8 @@ module gpu #(
     controller #(
         .ADDR_BITS(DATA_MEM_ADDR_BITS),
         .DATA_BITS(DATA_MEM_DATA_BITS),
-        .NUM_CONSUMERS(NUM_LSUS)
+        .NUM_CONSUMERS(NUM_LSUS),
+        .NUM_CHANNELS(DATA_MEM_NUM_CHANNELS)
     ) data_memory_controller (
         .clk(clk),
         .reset(reset),
@@ -127,6 +125,7 @@ module gpu #(
         .ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
         .DATA_BITS(PROGRAM_MEM_DATA_BITS),
         .NUM_CONSUMERS(NUM_FETCHERS),
+        .NUM_CHANNELS(PROGRAM_MEM_NUM_CHANNELS),
         .WRITE_ENABLE(0)
     ) program_memory_controller (
         .clk(clk),

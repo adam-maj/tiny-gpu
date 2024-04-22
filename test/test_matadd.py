@@ -52,7 +52,7 @@ async def test_matadd(dut):
         program_memory.run()
 
         await cocotb.triggers.ReadOnly()
-        format_cycle(dut, cycles)
+        format_cycle(dut, cycles, thread_id = 0)
         
         await RisingEdge(dut.clk)
         cycles += 1
