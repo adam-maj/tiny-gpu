@@ -1,6 +1,7 @@
 */**/__pycache__
 build/
 test/logs
+gds/
 
 .DS_Store
 results.xml

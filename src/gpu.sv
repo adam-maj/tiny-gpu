@@ -57,9 +57,7 @@ module gpu #(
     input reg data_mem_write_ready
 );
     // CONTROL
-    reg [7:0] device_conrol_register;
     wire [7:0] thread_count;
-    assign thread_count = device_conrol_register[7:0];
 
     // BLOCKS
     reg [NUM_CORES-1:0] core_start;
@@ -85,6 +83,16 @@ module gpu #(
     reg [NUM_FETCHERS-1:0] fetcher_read_ready;
     reg [PROGRAM_MEM_DATA_BITS-1:0] fetcher_read_data [NUM_FETCHERS-1:0];
     
+    // DEVICE CONTROL REGISTER
+    dcr dcr_instance (
+        .clk(clk),
+        .reset(reset),
+
+        .device_control_write_enable(device_control_write_enable),
+        .device_control_data(device_control_data),
+        .thread_count(thread_count)
+    );
+
     // MEMORY CONTROLLERS
     controller #(
         .ADDR_BITS(DATA_MEM_ADDR_BITS),
@@ -215,15 +223,4 @@ module gpu #(
             );
         end
     endgenerate
-
-    // DEVICE CONTROL REGISTER
-    always @(posedge clk) begin
-        if (reset) begin
-            device_conrol_register <= 8'b0;
-        end else begin
-            if (device_control_write_enable) begin 
-                device_conrol_register <= device_control_data;
-            end
-        end
-    end
 endmodule

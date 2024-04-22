@@ -26,6 +26,7 @@ module dispatch #(
 
     always @(posedge clk) begin
         if (reset) begin
+            done <= 0;
             blocks_dispatched <= 0;
             blocks_done <= 0;
             start_execution <= 0;
