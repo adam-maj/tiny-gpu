@@ -64,4 +64,3 @@ async def test_matadd(dut):
     for i, expected in enumerate(expected_results):
         result = data_memory.memory[i + 16]
         assert result == expected, f"Result mismatch at index {i}: expected {expected}, got {result}"
-
