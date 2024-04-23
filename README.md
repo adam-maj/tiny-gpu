@@ -5,7 +5,7 @@ A minimal GPU implementation in Verilog optimized for learning about how GPUs wo
 - [Overview]()
 - [Architecture](#architecture)
 - [ISA](#isa)
-- [SIMD](#simd)
+- [Thread](#thread)
 - [Memory](#memory)
 - [Kernels](#kernels)
 - [Simulation](#simulation)
@@ -111,6 +111,10 @@ Decodes the fetched instruction into control signals for thread execution.
 
 ### Register Files
 
+Each thread has it's own dedicated set of register files. The register files hold the data that each thread is performing computations on, which enables the same-instruction multiple-data (SIMD) pattern.
+
+Importantly, each register file contains a few read-only registers holding data about the current block & thread being executed locally, enabling kernels to be executed with different data based on the local thread id.
+
 ### ALUs
 
 Dedicated arithmetic-logic unit for each thread to perform computations.
@@ -131,11 +135,23 @@ In real GPUs, individual threads can branch to different PCs, causing **branch d
 
 ![ISA](/docs/images/isa.png)
 
-# SIMD
+tiny-gpu implements a simple 11 instruction ISA built to enable simple kernels for proof-of-concept like matrix addition & matrix multiplication (implementation further down on this page).
+
+For these purposes, it supports the following instructions:
+
+- `BRnzp` - Branch instruction to jump to another line of program memory if the NZP register matches the `nzp` condition in the instruction.
+- `CMP` - Compare the value of two registers and store the result in the NZP register to use for a later `BRnzp` instruction.
+- `ADD`, `SUB`, `MUL`, `DIV` - Basic arithmetic operations to enable tensor math.
+- `LDR` - Load data from global memory.
+- `STR` - Store data into global memory.
+- `CONST` - Load a constant value into a register.
+- `RET` - Signal that the current thread has reached the end of execution.
+
+Each register is specified by 4 bits, meaning that there are 16 total registers. The first 13 register `R0` - `R12` are free registers that support read/write. The last 3 registers are special read-only registers used to supply the `%blockIdx`, `%blockDim`, and `%threadIdx` critical to SIMD.
+
+# Thread
 
 ![Thread](/docs/images/thread.png)
-
-# Memory
 
 # Kernels
 
@@ -219,6 +235,10 @@ STR R9, R8                     ; store C[i] in global memory
 RET                            ; end of kernel
 ```
 
-# Code
-
 # Simulation
+
+tiny-gpu is setup to simulate the execution of both of the above kernels using `iverilog` and `cocotb`.
+
+Running `make test_matadd` or `make test_matmul` will run the specified kernel and output a log file with the complete execution trace of the kernel from start to finish, as well as the intial and final states of data memory.
+
+The `matadd` kernel adds 2 1x8 matrices across 8 threads running on 2 cores, and the `matmul` kernel multiplies 2 2x2 matrices across 4 threads.
