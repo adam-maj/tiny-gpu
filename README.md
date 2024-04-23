@@ -44,8 +44,10 @@ For each topic, we'll first cover how tiny-gpu implements the fundamentals. Then
 
 # Architecture
 
-<img src="/docs/images/gpu.png" alt="GPU" style="float: left; margin-right: 10px;"/>
-<img src="/docs/images/core.png" alt="Core" style="float: left; margin-left: 10px;"/>
+<div style="display: flex; justify-content: space-between;">
+  <img src="/docs/images/gpu.png" alt="GPU" style="margin-right: 10px;"/>
+  <img src="/docs/images/core.png" alt="Core" style="margin-left: 10px;"/>
+</div>
 
 ![Thread](/docs/images/thread.png)
 ![ISA](/docs/images/isa.png)
