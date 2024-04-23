@@ -44,10 +44,10 @@ For each topic, we'll first cover how tiny-gpu implements the fundamentals. Then
 
 # Architecture
 
-<div style="display: grid; grid-template-columns: repeat(2, 1fr);">
-  <img src="/docs/images/gpu.png" alt="GPU" style="grid-column: 1 / span 1;"/>
-  <img src="/docs/images/core.png" alt="Core" style="grid-column: 2 / span 1;"/>
-</div>
+<p float="left">
+  <img src="/docs/images/gpu.png" alt="GPU">
+  <img src="/docs/images/core.png" alt="Core">
+</p>
 
 ![Thread](/docs/images/thread.png)
 ![ISA](/docs/images/isa.png)
