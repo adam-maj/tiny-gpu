@@ -49,6 +49,10 @@ For each topic, we'll first cover how tiny-gpu implements the fundamentals. Then
   <img src="/docs/images/core.png" alt="Core" width="48%">
 </p>
 
-![Thread](/docs/images/thread.png)
+# ISA
+
 ![ISA](/docs/images/isa.png)
-![Key](/docs/images/key.png)
+
+# SIMD
+
+![Thread](/docs/images/thread.png)
