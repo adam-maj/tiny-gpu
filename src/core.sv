@@ -1,6 +1,10 @@
 `default_nettype none
 `timescale 1ns/1ns
 
+// COMPUTE CORE
+// > Handles processing 1 block at a time
+// > The core also has it's own manager to manage control flow
+// > Each core contains 1 fetcher & decoder, and register files, ALUs, LSUs, PC for each thread
 module core #(
     parameter DATA_MEM_ADDR_BITS = 8,
     parameter DATA_MEM_DATA_BITS = 8,

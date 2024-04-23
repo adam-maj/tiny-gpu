@@ -2,6 +2,8 @@
 `timescale 1ns/1ns
 
 // DEVICE CONTROL REGISTER
+// > Used to configure high-level settings
+// > In this minimal example, the DCR is used to configure the number of threads to run for the kernel
 module dcr (
     input wire clk,
     input wire reset,

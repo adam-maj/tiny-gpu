@@ -1,6 +1,9 @@
 `default_nettype none
 `timescale 1ns/1ns
 
+// INSTRUCTION DECODER
+// > Decodes an instruction into the control signals necessary to execute it
+// > Each core has it's own decoder
 module decoder (
     input wire clk,
     input wire reset,

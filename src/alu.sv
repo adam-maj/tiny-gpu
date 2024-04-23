@@ -1,7 +1,11 @@
 `default_nettype none
 `timescale 1ns/1ns
 
-// ALU
+// ARITHMETIC-LOGIC UNIT
+// > Executes computations on register values
+// > In this minimal implementation, the ALU supports the 4 basic arithmetic operations
+// > Each thread in each core has it's own ALU
+// > ADD, SUB, MUL, DIV instructions are all executed here
 module alu (
     input wire clk,
     input wire reset,

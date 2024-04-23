@@ -1,6 +1,12 @@
 `default_nettype none
 `timescale 1ns/1ns
 
+// GPU
+// > Built to use an external async memory with multi-channel read/write
+// > Assumes that the program is loaded into program memory, data into data memory, and threads into
+//   the device control register before the start signal is triggered
+// > Has memory controllers to interface between external memory and its multiple cores
+// > Configurable number of cores and thread capacity per core
 module gpu #(
     parameter DATA_MEM_ADDR_BITS = 8,
     parameter DATA_MEM_DATA_BITS = 8,

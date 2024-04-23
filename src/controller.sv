@@ -2,6 +2,9 @@
 `timescale 1ns/1ns
 
 // MEMORY CONTROLLER
+// > Receives memory requests from all cores
+// > Throttles requests based on limited external memory bandwidth
+// > Waits for responses from external memory and distributes them back to cores
 module controller #(
     parameter ADDR_BITS = 8,
     parameter DATA_BITS = 16,
@@ -73,7 +76,7 @@ module controller #(
                                 mem_read_valid[i] <= 1;
                                 mem_read_address[i] <= consumer_read_address[j];
                                 controller_state[i] <= READ_WAITING;
-                                
+
                                 break;
                             end else if (consumer_write_valid[j] && !channel_serving_consumer[j]) begin 
                                 channel_serving_consumer[j] = 1;

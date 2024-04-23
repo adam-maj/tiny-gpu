@@ -1,6 +1,10 @@
 `default_nettype none
 `timescale 1ns/1ns
 
+// LOAD-STORE UNIT
+// > Handles asynchronous memory load and store operations and waits for response
+// > Each thread in each core has it's own LSU
+// > LDR, STR instructions are executed here
 module lsu (
     input wire clk,
     input wire reset,

@@ -1,6 +1,12 @@
 `default_nettype none
 `timescale 1ns/1ns
 
+// PROGRAM COUNTER
+// > Calculates the next PC for each thread to update to (but currently we assume all threads
+//   update to the same PC and don't support branch divergence)
+// > Currently, each thread in each core has it's own calculation for next PC
+// > The NZP register value is set by the CMP instruction (based on >/=/< comparison) to 
+//   initiate the BRnzp instruction for branching
 module pc #(
     parameter DATA_MEM_DATA_BITS = 8,
     parameter PROGRAM_MEM_ADDR_BITS = 8
