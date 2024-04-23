@@ -61,7 +61,9 @@ For each topic, we'll first cover how tiny-gpu implements the fundamentals. Then
 
 # Kernels
 
-```asm filename="matadd.asm"
+`matadd.asm`
+
+```asm
 .threads 8
 .data 0 1 2 3 4 5 6 7          ; matrix A (1 x 8)
 .data 0 1 2 3 4 5 6 7          ; matrix B (1 x 8)
@@ -87,7 +89,9 @@ STR R7, R6                     ; store C[i] in global memory
 RET                            ; end of kernel
 ```
 
-```asm filename="matmul.asm"
+`matmul.asm`
+
+```asm
 .threads 4
 .data 1 2 3 4                  ; matrix A (2 x 2)
 .data 1 2 3 4                  ; matrix B (2 x 2)
