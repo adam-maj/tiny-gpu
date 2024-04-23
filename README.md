@@ -44,9 +44,9 @@ For each topic, we'll first cover how tiny-gpu implements the fundamentals. Then
 
 # Architecture
 
-<div style="display: flex; justify-content: space-between;">
-  <img src="/docs/images/gpu.png" alt="GPU" style="margin-right: 10px;"/>
-  <img src="/docs/images/core.png" alt="Core" style="margin-left: 10px;"/>
+<div style="display: grid; grid-template-columns: repeat(2, 1fr);">
+  <img src="/docs/images/gpu.png" alt="GPU" style="grid-column: 1 / span 1;"/>
+  <img src="/docs/images/core.png" alt="Core" style="grid-column: 2 / span 1;"/>
 </div>
 
 ![Thread](/docs/images/thread.png)
