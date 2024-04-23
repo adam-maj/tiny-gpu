@@ -26,7 +26,9 @@ This is why I built `tiny-gpu`!
 
 ## What is tiny-gpu?
 
-> [!IMPORTANT] > **tiny-gpu** is a minimal GPU implementation optimized for learning about how GPUs work from the ground up.
+> [!IMPORTANT]
+
+> **tiny-gpu** is a minimal GPU implementation optimized for learning about how GPUs work from the ground up.
 >
 > Specifically, with the trend toward general-purpose GPUs (GPGPUs) and ML-accelerators like Google's TPU, tiny-gpu focuses on highlighting the general principles of all of these architectures, rather than on the details of graphics-specific hardware.
 
@@ -39,7 +41,3 @@ This project is primarily focused on exploring:
 3. **Memory** - How does a GPU work around the constraints of limited memory bandwidth?
 
 For each topic, we'll first cover how tiny-gpu implements the fundamentals. Then, using this as a foundation, we'll explore further optimizations implemented in modern-day GPUs.
-
-## What is tiny-gpu not?
-
-With the goal of simplicity
