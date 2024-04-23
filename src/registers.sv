@@ -2,8 +2,8 @@
 `timescale 1ns/1ns
 
 // REGISTER FILE
-// > Each thread within each core has it's own register file with 13 free registers and 3 restricted registers
-// > Restricted registers hold the familiar %blockIdx, %blockDim, and %threadIdx values critical to SIMD
+// > Each thread within each core has it's own register file with 13 free registers and 3 read-only registers
+// > Read-only registers hold the familiar %blockIdx, %blockDim, and %threadIdx values critical to SIMD
 module registers #(
     parameter THREADS_PER_BLOCK = 4,
     parameter THREAD_ID = 0,
