@@ -3,12 +3,12 @@
 A minimal GPU implementation in Verilog optimized for learning about how GPUs work from the ground up.
 
 - [Overview]()
-- [Architecture](/#architecture)
-- [ISA](/#isa)
-- [SIMD](/#simd)
-- [Memory](/#memory)
-- [Kernels]()
-- [Simulation]()
+- [Architecture](#architecture)
+- [ISA](#isa)
+- [SIMD](#simd)
+- [Memory](#memory)
+- [Kernels](#kernels)
+- [Simulation](#simulation)
 
 # Overview
 
