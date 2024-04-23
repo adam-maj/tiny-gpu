@@ -41,3 +41,11 @@ This project is primarily focused on exploring:
 3. **Memory** - How does a GPU work around the constraints of limited memory bandwidth?
 
 For each topic, we'll first cover how tiny-gpu implements the fundamentals. Then, using this as a foundation, we'll explore further optimizations implemented in modern-day GPUs.
+
+# Architecture
+
+![GPU](/docs/images/gpu.png)
+![Core](/docs/images/core.png)
+![Thread](/docs/images/thread.png)
+![ISA](/docs/images/isa.png)
+![Key](/docs/images/key.png)
