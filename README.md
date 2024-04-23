@@ -1,8 +1,6 @@
 # tiny-gpu
 
-A minimal GPU built with Verilog!
-
-### Contents
+A minimal GPU implementation in Verilog optimized for learning about how GPUs work from the ground up.
 
 - [Overview]()
 - [Architecture]()
@@ -28,7 +26,7 @@ This is why I built `tiny-gpu`!
 
 ## What is tiny-gpu?
 
-> **tiny-gpu** is a minimal GPU implementation optimized for learning about how GPUs work from the ground up.
+> [!IMPORTANT] > **tiny-gpu** is a minimal GPU implementation optimized for learning about how GPUs work from the ground up.
 >
 > Specifically, with the trend toward general-purpose GPUs (GPGPUs) and ML-accelerators like Google's TPU, tiny-gpu focuses on highlighting the general principles of all of these architectures, rather than on the details of graphics-specific hardware.
 
