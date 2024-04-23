@@ -1,7 +1,7 @@
 `default_nettype none
 `timescale 1ns/1ns
 
-// EXECUTION MANAGER
+// SCHEDULER
 // > Manages the entire control flow of a single compute core processing 1 block
 // 1. FETCH - Retrieve instruction at current program counter (PC) from program memory
 // 2. DECODE - Decode the instruction into the relevant control signals
@@ -9,11 +9,11 @@
 // 4. WAIT - Wait for all async memory requests to resolve (if applicable)
 // 5. EXECUTE - Execute computations on retrieved data from registers / memory
 // 6. UPDATE - Update register values (including NZP register) and program counter
-// > Each core has it's own execution manager where multiple threads can be processed with
+// > Each core has it's own scheduler where multiple threads can be processed with
 //   the same control flow at once.
 // > Technically, different instructions can branch to different PCs, requiring "branch divergence." In
 //   this minimal implementation, we assume no branch divergence (naive approach for simplicity)
-module manager #(
+module scheduler #(
     parameter THREADS_PER_BLOCK = 4,
 ) (
     input wire clk,

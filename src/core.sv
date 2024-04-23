@@ -3,7 +3,7 @@
 
 // COMPUTE CORE
 // > Handles processing 1 block at a time
-// > The core also has it's own manager to manage control flow
+// > The core also has it's own scheduler to manage control flow
 // > Each core contains 1 fetcher & decoder, and register files, ALUs, LSUs, PC for each thread
 module core #(
     parameter DATA_MEM_ADDR_BITS = 8,
@@ -105,9 +105,9 @@ module core #(
         .decoded_ret(decoded_ret)
     );
 
-    manager #(
+    scheduler #(
         .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
-    ) manager_instance (
+    ) scheduler_instance (
         .clk(clk),
         .reset(reset),
         .start(start),
