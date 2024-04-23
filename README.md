@@ -45,8 +45,8 @@ For each topic, we'll first cover how tiny-gpu implements the fundamentals. Then
 # Architecture
 
 <p float="left">
-  <img src="/docs/images/gpu.png" alt="GPU">
-  <img src="/docs/images/core.png" alt="Core">
+  <img src="/docs/images/gpu.png" alt="GPU" width="100">
+  <img src="/docs/images/core.png" alt="Core" width="100">
 </p>
 
 ![Thread](/docs/images/thread.png)
