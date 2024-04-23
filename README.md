@@ -2,8 +2,6 @@
 
 A minimal GPU implementation in Verilog optimized for learning about how GPUs work from the ground up.
 
-Full documentation on every detail including architecture, ISA, control signals, control flow, and code!
-
 - [Overview]()
 - [Architecture]()
 - [ISA]()
