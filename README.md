@@ -6,9 +6,13 @@ Built with <15 files of fully documented Verilog, complete documentation on arch
 
 - [Overview]()
 - [Architecture](#architecture)
+
   [GPU](#gpu)
+
   [Memory](#memory)
+
   [Core](#core)
+
 - [ISA](#isa)
 - [Execution](#execution)
   [Core](#core-1)
