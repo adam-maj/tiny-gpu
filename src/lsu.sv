@@ -8,26 +8,30 @@
 module lsu (
     input wire clk,
     input wire reset,
-    input wire enable,
+    input wire enable, // If current block has less threads then block size, some LSUs will be inactive
 
+    // State
     input reg [2:0] core_state,
 
+    // Memory Control Sgiansl
     input reg decoded_mem_read_enable,
     input reg decoded_mem_write_enable,
-    
+
+    // Registers
+    input reg [7:0] rs,
+    input reg [7:0] rt,
+
+    // Data Memory
     output reg mem_read_valid,
     output reg [7:0] mem_read_address,
     input reg mem_read_ready,
     input reg [7:0] mem_read_data,
-
     output reg mem_write_valid,
     output reg [7:0] mem_write_address,
     output reg [7:0] mem_write_data,
     input reg mem_write_ready,
 
-    input reg [7:0] rs,
-    input reg [7:0] rt,
-
+    // LSU Outputs
     output reg [1:0] lsu_state,
     output reg [7:0] lsu_out
 );
@@ -43,6 +47,7 @@ module lsu (
             mem_write_address <= 0;
             mem_write_data <= 0;
         end else if (enable) begin
+            // If memory read enable is triggered (LDR instruction)
             if (decoded_mem_read_enable) begin 
                 case (lsu_state)
                     IDLE: begin
@@ -72,6 +77,7 @@ module lsu (
                 endcase
             end
 
+            // If memory write enable is triggered (STR instruction)
             if (decoded_mem_write_enable) begin 
                 case (lsu_state)
                     IDLE: begin

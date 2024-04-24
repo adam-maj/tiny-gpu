@@ -11,14 +11,14 @@ module decoder (
     input reg [2:0] core_state,
     input reg [15:0] instruction,
     
-    // Values
+    // Instruction Signals
     output reg [3:0] decoded_rd_address,
     output reg [3:0] decoded_rs_address,
     output reg [3:0] decoded_rt_address,
     output reg [2:0] decoded_nzp,
     output reg [7:0] decoded_immediate,
     
-    // Signals
+    // Control Signals
     output reg decoded_reg_write_enable,           // Enable writing to a register
     output reg decoded_mem_read_enable,            // Enable reading from memory
     output reg decoded_mem_write_enable,           // Enable writing to memory
@@ -28,7 +28,7 @@ module decoder (
     output reg decoded_alu_output_mux,             // Select operation in ALU
     output reg decoded_pc_mux,                     // Select source of next PC
 
-    // Done
+    // Return (finished executing thread)
     output reg decoded_ret
 );
     localparam NOP = 4'b0000,
@@ -62,12 +62,14 @@ module decoder (
         end else begin 
             // Decode when core_state = DECODE
             if (core_state == 3'b010) begin 
+                // Get instruction signals from instruction every time
                 decoded_rd_address <= instruction[11:8];
                 decoded_rs_address <= instruction[7:4];
                 decoded_rt_address <= instruction[3:0];
                 decoded_immediate <= instruction[7:0];
                 decoded_nzp <= instruction[11:9];
 
+                // Control signals reset on every decode and set conditionally by instruction
                 decoded_reg_write_enable <= 0;
                 decoded_mem_read_enable <= 0;
                 decoded_mem_write_enable <= 0;
@@ -78,6 +80,7 @@ module decoder (
                 decoded_pc_mux <= 0;
                 decoded_ret <= 0;
 
+                // Set the control signals for each instruction
                 case (instruction[15:12])
                     NOP: begin 
                         // no-op

@@ -12,6 +12,7 @@ module dcr (
     input wire [7:0] device_control_data,
     output wire [7:0] thread_count,
 );
+    // Store device control data in dedicated register
     reg [7:0] device_conrol_register;
     assign thread_count = device_conrol_register[7:0];
 

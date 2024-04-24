@@ -19,21 +19,24 @@ module scheduler #(
     input wire clk,
     input wire reset,
     input wire start,
-
-    input reg [2:0] fetcher_state,
-
+    
+    // Control Signals
     input reg decoded_mem_read_enable,
     input reg decoded_mem_write_enable,
     input reg decoded_ret,
+
+    // Memory Access State
+    input reg [2:0] fetcher_state,
     input reg [1:0] lsu_state [THREADS_PER_BLOCK-1:0],
 
+    // Current & Next PC
     output reg [7:0] current_pc,
     input reg [7:0] next_pc [THREADS_PER_BLOCK-1:0],
 
+    // Execution State
     output reg [2:0] core_state,
     output reg done
 );
-    // TODO: Package
     localparam IDLE = 3'b000, // Waiting to start
         FETCH = 3'b001,       // Fetch instructions from program memory
         DECODE = 3'b010,      // Decode instructions into control signals
@@ -41,7 +44,7 @@ module scheduler #(
         WAIT = 3'b100,        // Wait for response from memory if necessary
         EXECUTE = 3'b101,     // Execute ALU and PC calculations
         UPDATE = 3'b110,      // Update registers, NZP, and PC
-        DONE = 3'b111;      
+        DONE = 3'b111;        // Done executing this block
     
     always @(posedge clk) begin 
         if (reset) begin
@@ -50,8 +53,10 @@ module scheduler #(
             done <= 0;
         end else begin 
             case (core_state)
-                IDLE: begin 
+                IDLE: begin
+                    // Here after reset (before kernel is launched, or after previous block has been processed)
                     if (start) begin 
+                        // Start by fetching the next instruction for this block based on PC
                         core_state <= FETCH;
                     end
                 end
@@ -80,6 +85,7 @@ module scheduler #(
                         end
                     end
 
+                    // If no LSU is waiting for a response, move onto the next stage
                     if (!any_lsu_waiting) begin
                         core_state <= EXECUTE;
                     end
@@ -90,6 +96,7 @@ module scheduler #(
                 end
                 UPDATE: begin 
                     if (decoded_ret) begin 
+                        // If we reach a RET instruction, this block is done executing
                         done <= 1;
                         core_state <= DONE;
                     end else begin 

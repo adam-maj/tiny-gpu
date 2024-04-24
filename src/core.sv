@@ -14,36 +14,37 @@ module core #(
 ) (
     input wire clk,
     input wire reset,
+
+    // Kernel Execution
     input wire start,
     output wire done,
 
-    // METADATA
+    // Block Metadata
     input wire [7:0] block_id,
     input wire [$clog2(THREADS_PER_BLOCK):0] thread_count,
 
-    // PROGRAM MEMORY
+    // Program Memory
     output reg program_mem_read_valid,
     output reg [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_read_address,
     input reg program_mem_read_ready,
     input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
 
-    // DATA MEMORY
+    // Data Memory
     output reg [THREADS_PER_BLOCK-1:0] data_mem_read_valid,
     output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_BLOCK-1:0],
     input reg [THREADS_PER_BLOCK-1:0] data_mem_read_ready,
     input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_BLOCK-1:0],
-
     output reg [THREADS_PER_BLOCK-1:0] data_mem_write_valid,
     output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_BLOCK-1:0],
     output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_BLOCK-1:0],
     input reg [THREADS_PER_BLOCK-1:0] data_mem_write_ready
 );
-    // STATE
+    // State
     reg [2:0] core_state;
     reg [2:0] fetcher_state;
     reg [15:0] instruction;
 
-    // EXECUTION
+    // Intermediate Signals
     reg [7:0] current_pc;
     wire [7:0] next_pc[THREADS_PER_BLOCK-1:0];
     reg [7:0] rs[THREADS_PER_BLOCK-1:0];
@@ -52,12 +53,14 @@ module core #(
     reg [7:0] lsu_out[THREADS_PER_BLOCK-1:0];
     wire [7:0] alu_out[THREADS_PER_BLOCK-1:0];
     
-    // DECODER
+    // Decoded Instruction Signals
     reg [3:0] decoded_rd_address;
     reg [3:0] decoded_rs_address;
     reg [3:0] decoded_rt_address;
     reg [2:0] decoded_nzp;
     reg [7:0] decoded_immediate;
+
+    // Decoded Control Signals
     reg decoded_reg_write_enable;           // Enable writing to a register
     reg decoded_mem_read_enable;            // Enable reading from memory
     reg decoded_mem_write_enable;           // Enable writing to memory
@@ -68,6 +71,7 @@ module core #(
     reg decoded_pc_mux;                     // Select source of next PC
     reg decoded_ret;
 
+    // Fetcher
     fetcher #(
         .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
         .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS)
@@ -84,6 +88,7 @@ module core #(
         .instruction(instruction) 
     );
 
+    // Decoder
     decoder decoder_instance (
         .clk(clk),
         .reset(reset),
@@ -105,6 +110,7 @@ module core #(
         .decoded_ret(decoded_ret)
     );
 
+    // Scheduler
     scheduler #(
         .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
     ) scheduler_instance (
@@ -122,9 +128,11 @@ module core #(
         .done(done)
     );
 
+    // Dedicated ALU, LSU, registers, & PC unit for each thread this core has capacity for
     genvar i;
     generate
         for (i = 0; i < THREADS_PER_BLOCK; i = i + 1) begin : threads
+            // ALU
             alu alu_instance (
                 .clk(clk),
                 .reset(reset),
@@ -137,6 +145,7 @@ module core #(
                 .alu_out(alu_out[i])
             );
 
+            // LSU
             lsu lsu_instance (
                 .clk(clk),
                 .reset(reset),
@@ -158,6 +167,7 @@ module core #(
                 .lsu_out(lsu_out[i])
             );
 
+            // Register File
             registers #(
                 .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
                 .THREAD_ID(i),
@@ -180,6 +190,7 @@ module core #(
                 .rt(rt[i])
             );
 
+            // Program Counter
             pc #(
                 .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS)

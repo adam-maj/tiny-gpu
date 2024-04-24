@@ -9,7 +9,7 @@
 module alu (
     input wire clk,
     input wire reset,
-    input wire enable,
+    input wire enable, // If current block has less threads then block size, some ALUs will be inactive
 
     input reg [2:0] core_state,
 
@@ -35,9 +35,10 @@ module alu (
             // Calculate alu_out when core_state = EXECUTE
             if (core_state == 3'b101) begin 
                 if (decoded_alu_output_mux == 1) begin 
-                    // Set values to compare with NZP register
+                    // Set values to compare with NZP register in alu_out[2:0]
                     alu_out_reg <= {5'b0, (rs - rt > 0), (rs - rt == 0), (rs - rt < 0)};
                 end else begin 
+                    // Execute the specified arithmetic instruction
                     case (decoded_alu_arithmetic_mux)
                         ADD: begin 
                             alu_out_reg <= rs + rt;

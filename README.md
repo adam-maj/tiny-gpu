@@ -242,3 +242,8 @@ tiny-gpu is setup to simulate the execution of both of the above kernels using `
 Running `make test_matadd` or `make test_matmul` will run the specified kernel and output a log file with the complete execution trace of the kernel from start to finish, as well as the intial and final states of data memory.
 
 The `matadd` kernel adds 2 1x8 matrices across 8 threads running on 2 cores, and the `matmul` kernel multiplies 2 2x2 matrices across 4 threads.
+
+# Notes
+
+- Many things that could be wires are registers to make things explicitly synchronous and for code simplicity and clarity.
+- State management does some things in many cycles that could be done in 1 to make control flow explicit.
