@@ -52,6 +52,8 @@ This project is primarily focused on exploring:
 2. **Parallelization** - How is the SIMD progamming model implemented in hardware?
 3. **Memory** - How does a GPU work around the constraints of limited memory bandwidth?
 
+After understanding the fundamentals laid out in this project, you can checkout the [advanced functionality section](#advanced-functionality) to understand some of the most important optimizations made in production grade GPUs (that are more challenging to implement) which improve performance.
+
 # Architecture
 
 <p float="left">
