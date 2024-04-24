@@ -7,7 +7,7 @@ Built with <15 files of fully documented Verilog, complete documentation on arch
 - [Overview]()
 - [Architecture](#architecture)
 - [ISA](#isa)
-- [Thread](#thread)
+- [Execution](#execution)
 - [Kernels](#kernels)
 - [Simulation](#simulation)
 
@@ -183,7 +183,24 @@ For these purposes, it supports the following instructions:
 
 Each register is specified by 4 bits, meaning that there are 16 total registers. The first 13 register `R0` - `R12` are free registers that support read/write. The last 3 registers are special read-only registers used to supply the `%blockIdx`, `%blockDim`, and `%threadIdx` critical to SIMD.
 
-# Thread
+# Execution
+
+### Core
+
+Each core follows the following control flow going through different stages to execute each instruction:
+
+1. `FETCH` - Fetch the next instruction at current program counter from program memory.
+2. `DECODE` - Decode the instruction into control signals.
+3. `REQUEST` - Request data from global memory if necessary (if `LDR` or `STR` instruction).
+4. `WAIT` - Wait for data from global memory if applicable.
+5. `EXECUTE` - Execute any computations on data.
+6. `UPDATE` - Update register files and NZP register.
+
+The control flow is laid out like this for the sake of simplicity and understandability.
+
+In practice, several of these steps could be compressed to be optimize processing times, and the GPU could also use **pipelining** to stream and coordinate the execution of many instructions on a cores resources without waiting for previous instructions to finish.
+
+### Thread
 
 ![Thread](/docs/images/thread.png)
 
