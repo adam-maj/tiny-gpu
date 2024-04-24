@@ -319,7 +319,7 @@ Below is a sample of the execution traces, showing on each cycle the execution o
 Notes on design decisions made for simplicity that could be optimized away;
 
 - Many things that could be wires are registers to make things explicitly synchronous and for code simplicity and clarity.
-- State management does some things in many cycles that could be done in 1 to make control flow explicit.
+- State management does some things in many cycles that could be done in 1 cycle to make control flow explicit.
 
 ## Next Steps
 
@@ -331,3 +331,5 @@ Updates I want to make in the future to improve the design, anyone else is welco
 - [ ] Add basic memory coalescing
 - [ ] Add basic pipelining
 - [ ] Write a basic graphics kernel or add simple graphics hardware to demonstrate graphics functionality
+
+**For anyone curious to play around or make a contribution, feel free to put up a PR with any improvements you'd like to add 😄**
