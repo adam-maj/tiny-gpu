@@ -65,13 +65,13 @@ The GPU itself consists of the following units:
 4. Memory controllers for data memory & program memory
 5. Cache
 
-**Device Control Register:**
+### Device Control Register
 
 The device control register usually stores metadata specifying how kernels should be executed on the GPU.
 
 In this case, the device control register just stores the `thread_count` - the total number of threads to launch for the active kernel.
 
-**Dispatcher:**
+### Dispatcher
 
 Once a kernel is launched, the dispatcher is the unit that actually manages the distribution of threads to different compute cores.
 
@@ -83,7 +83,7 @@ Once all blocks have been processed, the dispatcher reports back that the kernel
 
 The GPU is built to interface with an external global memory. Here, data memory and program memory are separated out for simplicity.
 
-**Global Memory:**
+### Global Memory
 
 tiny-gpu data memory has the following specifications:
 
@@ -95,7 +95,7 @@ tiny-gpu program memory has the following specifications:
 - 8 bit addressability (256 rows of program memory)
 - 16 bit data (each instruction is 16 bits as specified by the ISA)
 
-**Memory Controllers:**
+### Memory Controllers
 
 Global memory has fixed read/write bandwidth, but there may be far more incoming requests across all cores to access data from memory than the external memory is actually able to handle.
 
@@ -103,7 +103,7 @@ The memory controllers keep track of all the outgoing requests to memory from th
 
 Each memory controller has a fixed number of channels based on the bandwidth of global memory.
 
-**Cache:**
+### Cache
 
 The same data is often requested from global memory by multiple cores. Constantly access global memory repeatedly is expensive, and since the data has already been fetched once, it would be more efficient to store it on device in SRAM to be retrieved much quicker on later requests.
 
@@ -115,7 +115,7 @@ Each core has a number of compute resources, often built around a certain number
 
 In this simplified GPU, each core processed one **block** at a time, and for each thread in a block, the core has a dedicated ALU, LSU, PC, and register file. Managing the execution of thread instructions on these resources is one of the most challening problems in GPUs.
 
-**Scheduler:**
+### Scheduler
 
 Each core has a single scheduler that manages the execution of threads.
 
@@ -125,33 +125,33 @@ In more advanced schedulers, techniques like **pipelining** are used to stream t
 
 The main constraint the scheduler has to work around is the latency associated with loading & storing data from global memory. While most instructions can be executed synchronously, these load-store operations are asynchronous, meaning the rest of the instruction execution has to be built around these long wait times.
 
-**Fetcher:**
+### Fetcher
 
 Asynchronously fetches the instruction at the current program counter from program memory (most should actually be fetching from cache after a single block is executed).
 
-**Decoder:**
+### Decoder
 
 Decodes the fetched instruction into control signals for thread execution.
 
-**Register Files:**
+### Register Files
 
 Each thread has it's own dedicated set of register files. The register files hold the data that each thread is performing computations on, which enables the same-instruction multiple-data (SIMD) pattern.
 
 Importantly, each register file contains a few read-only registers holding data about the current block & thread being executed locally, enabling kernels to be executed with different data based on the local thread id.
 
-**ALUs:**
+### ALUs
 
 Dedicated arithmetic-logic unit for each thread to perform computations. Handles the `ADD`, `SUB`, `MUL`, `DIV` arithmetic instructions.
 
 Also handles the `CMP` comparison instruction which actually outputs whether the result of the difference between two registers is negative, zero or positive - and stores the result in the `NZP` register in the PC unit.
 
-**LSUs:**
+### LSUs
 
 Dedicated load-store unit for each thread to access global data memory.
 
 Handles the `LDR` & `STR` instructions - and handles async wait times for memory requests to be processed and relayed by the memory controller.
 
-**PCs:**
+### PCs
 
 Dedicated program-counter for each unit to determine the next instructions to execute on each thread.
 
