@@ -273,9 +273,9 @@ Notes on design decisions made for simplicity that could be optimized away;
 
 Updates I want to make in the future to improve the design, anyone else is welcome to contribute as well:
 
-[] Build an adapter to use GPU with Tiny Tapeout 7
-[] Add support for branch divergence
-[] Optimize control flow and use of registers to improve cycle time
-[] Add basic memory coalescing
-[] Add basic pipelining
-[] Write a basic graphics kernel or add simple graphics hardware to demonstrate graphics functionality
+- [ ] Build an adapter to use GPU with Tiny Tapeout 7
+- [ ] Add support for branch divergence
+- [ ] Optimize control flow and use of registers to improve cycle time
+- [ ] Add basic memory coalescing
+- [ ] Add basic pipelining
+- [ ] Write a basic graphics kernel or add simple graphics hardware to demonstrate graphics functionality
