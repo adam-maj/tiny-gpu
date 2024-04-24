@@ -118,7 +118,7 @@ The memory controllers keep track of all the outgoing requests to memory from th
 
 Each memory controller has a fixed number of channels based on the bandwidth of global memory.
 
-### Cache
+### Cache (WIP)
 
 The same data is often requested from global memory by multiple cores. Constantly access global memory repeatedly is expensive, and since the data has already been fetched once, it would be more efficient to store it on device in SRAM to be retrieved much quicker on later requests.
 
@@ -377,6 +377,7 @@ This is useful for cases where threads need to exchange shared data with each ot
 
 Updates I want to make in the future to improve the design, anyone else is welcome to contribute as well:
 
+- [ ] Add a simple cache for instructions
 - [ ] Build an adapter to use GPU with Tiny Tapeout 7
 - [ ] Add basic branch divergence
 - [ ] Add basic memory coalescing
