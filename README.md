@@ -4,22 +4,18 @@ A minimal GPU implementation in Verilog optimized for learning about how GPUs wo
 
 Built with <15 files of fully documented Verilog, complete documentation on architecture & ISA, working matrix addition/multiplication kernels, and full support for kernel simulation & execution traces.
 
-- [Overview]()
+- [Overview](#overview)
 - [Architecture](#architecture)
-
-  [GPU](#gpu)
-
-  [Memory](#memory)
-
-  [Core](#core)
-
+  - [GPU](#gpu)
+  - [Memory](#memory)
+  - [Core](#core)
 - [ISA](#isa)
 - [Execution](#execution)
-  [Core](#core-1)
-  [Thread](#thread)
+  - [Core](#core-1)
+  - [Thread](#thread)
 - [Kernels](#kernels)
-  [Matrix Addition](#matrix-addition)
-  [Matrix Multiplication](#matrix-multiplication)
+  - [Matrix Addition](#matrix-addition)
+  - [Matrix Multiplication](/tree/master?tab=readme-ov-file#matrix-multiplication)
 - [Simulation](#simulation)
 
 # Overview
