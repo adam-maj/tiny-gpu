@@ -6,16 +6,16 @@ Built with <15 files of fully documented Verilog, complete documentation on arch
 
 - [Overview]()
 - [Architecture](#architecture)
-  - [GPU](#gpu)
-  - [Memory](#memory)
-  - [Core](#core)
+  [GPU](#gpu)
+  [Memory](#memory)
+  [Core](#core)
 - [ISA](#isa)
 - [Execution](#execution)
-  - [Core](#core-1)
-  - [Thread](#thread)
+  [Core](#core-1)
+  [Thread](#thread)
 - [Kernels](#kernels)
-  - [Matrix Addition](#matrix-addition)
-  - [Matrix Multiplication](/tree/master?tab=readme-ov-file#matrix-multiplication)
+  [Matrix Addition](#matrix-addition)
+  [Matrix Multiplication](#matrix-multiplication)
 - [Simulation](#simulation)
 
 # Overview
