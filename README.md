@@ -153,9 +153,19 @@ Each register is specified by 4 bits, meaning that there are 16 total registers.
 
 ![Thread](/docs/images/thread.png)
 
+Each thread within each core follows the above execution path to perform computations on the data in it's dedicated register file.
+
+This resembles a standard CPU diagram, and is quite similar in functionality as well. The main difference is that the `%blockIdx`, `%blockDim`, and `%threadIdx` values lie in the read-only registers for each thread, enabling SIMD functionality.
+
 # Kernels
 
+I wrote a matrix addition and matrix multiplication kernel using my ISA as a proof of concept to demonstrate SIMD programming and execution with my GPU. The test files in this repository are capable of fully simulating the execution of these kernels on the GPU, producing data memory states and a complete execution trace.
+
 ### Matrix Addition
+
+This matrix addition kernel adds two 1 x 8 matrices by performing 8 element wise additions in separate threads.
+
+This demonstration makes use of the `%blockIdx`, `%blockDim`, and `%threadIdx` registers to show SIMD programming on this GPU. It also uses the `LDR` and `STR` instructions which require async memory management.
 
 `matadd.asm`
 
@@ -186,6 +196,8 @@ RET                            ; end of kernel
 ```
 
 ### Matrix Multiplication
+
+The matrix multiplication kernel multiplies two 2x2 matrices. It performs element wise calculation of the dot product of the relevant row and column and uses the `CMP` and `BRnzp` instructions to demonstrate branching within the threads (notably, all branches converge so this kernel works on the current tiny-gpu implementation).
 
 `matmul.asm`
 
@@ -237,13 +249,34 @@ RET                            ; end of kernel
 
 # Simulation
 
-tiny-gpu is setup to simulate the execution of both of the above kernels using `iverilog` and `cocotb`.
+tiny-gpu is setup to simulate the execution of both of the above kernels. Before simulating, you'll need to install [iverilog](https://steveicarus.github.io/iverilog/usage/installation.html) and [cocotb](https://docs.cocotb.org/en/stable/install.html).
 
-Running `make test_matadd` or `make test_matmul` will run the specified kernel and output a log file with the complete execution trace of the kernel from start to finish, as well as the intial and final states of data memory.
+Once you've installed the pre-requisites, you can run the kernel simulations with `make test_matadd` and `make test_matmul`.
+
+Executing the simulations will output a log file in `test/logs` with the initial data memory state, complete execution trace of the kernel, and final data memory state.
 
 The `matadd` kernel adds 2 1x8 matrices across 8 threads running on 2 cores, and the `matmul` kernel multiplies 2 2x2 matrices across 4 threads.
 
-# Notes
+If you look at the initial for each, you should see the two start matrices for the calculation, and in final data memory you should also see the resultant matrix.
+
+Below is a sample of the execution traces, showing on each cycle the execution of every thread within every core, including the current instruction, PC, register values, states, etc.
+
+![trace.png](execution trace)
+
+## Notes
+
+Notes on design decisions made for simplicity that could be optimized away;
 
 - Many things that could be wires are registers to make things explicitly synchronous and for code simplicity and clarity.
 - State management does some things in many cycles that could be done in 1 to make control flow explicit.
+
+## Next Steps
+
+Updates I want to make in the future to improve the design, anyone else is welcome to contribute as well:
+
+[] Build an adapter to use GPU with Tiny Tapeout 7
+[] Add support for branch divergence
+[] Optimize control flow and use of registers to improve cycle time
+[] Add basic memory coalescing
+[] Add basic pipelining
+[] Write a basic graphics kernel or add simple graphics hardware to demonstrate graphics functionality
