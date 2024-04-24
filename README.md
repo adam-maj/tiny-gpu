@@ -2,7 +2,7 @@
 
 A minimal GPU implementation in Verilog optimized for learning about how GPUs work from the ground up.
 
-Built with <15 files of fully documented Verilog, complete documentation on architecture & ISA, and working matrix addition and multiplication kernels with full support for simulation & complete execution traces.
+Built with <15 files of fully documented Verilog, complete documentation on architecture & ISA, and working matrix addition and multiplication kernels with full support for simulation & execution traces.
 
 - [Overview]()
 - [Architecture](#architecture)
