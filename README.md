@@ -48,17 +48,30 @@ This project is primarily focused on exploring:
 
 ## GPU
 
-tiny-gpu is built to execute a single kernel at a time. In order to launch a kernel, we need to load external program memory with our kernel code, load data memory with the necessary data, specify the number of threads to launch in the device control register, and then launch the kernel by setting the start signal to high.
+tiny-gpu is built to execute a single kernel at a time.
 
-The GPU itself consists of 2 control units - the device control register & the dispatcher, as well as multiple compute cores, and memory controllers with cache.
+In order to launch a kernel, we need to do the following:
 
-### Device Control Register
+1. Load global program memory with the kernel code
+2. Load data memory with the necessary data
+3. Specify the number of threads to launch in the device control register
+4. Launch the kernel by setting the start signal to high.
+
+The GPU itself consists of the following units:
+
+1. Device control register
+2. Dispatcher
+3. Variable number of compute cores
+4. Memory controllers for data memory & program memory
+5. Cache
+
+**Device Control Register:**
 
 The device control register usually stores metadata specifying how kernels should be executed on the GPU.
 
 In this case, the device control register just stores the `thread_count` - the total number of threads to launch for the active kernel.
 
-### Dispatcher
+**Dispatcher:**
 
 Once a kernel is launched, the dispatcher is the unit that actually manages the distribution of threads to different compute cores.
 
@@ -66,21 +79,35 @@ The dispatcher organizes threads into groups that can be executed in parallel on
 
 Once all blocks have been processed, the dispatcher reports back that the kernel execution is done.
 
-### Memory Controllers
+## Memory
+
+The GPU is built to interface with an external global memory. Here, data memory and program memory are separated out for simplicity.
+
+**Global Memory:**
+
+tiny-gpu data memory has the following specifications:
+
+- 8 bit addressability (256 total rows of data memory)
+- 8 bit data (stores values of <256 for each row)
+
+tiny-gpu program memory has the following specifications:
+
+- 8 bit addressability (256 rows of program memory)
+- 16 bit data (each instruction is 16 bits as specified by the ISA)
+
+**Memory Controllers:**
 
 Global memory has fixed read/write bandwidth, but there may be far more incoming requests across all cores to access data from memory than the external memory is actually able to handle.
 
 The memory controllers keep track of all the outgoing requests to memory from the compute cores, throttle requests based on actual external memory bandwidth, and relay responses from external memory back to the proper resources.
 
-### Cache
+Each memory controller has a fixed number of channels based on the bandwidth of global memory.
+
+**Cache:**
 
 The same data is often requested from global memory by multiple cores. Constantly access global memory repeatedly is expensive, and since the data has already been fetched once, it would be more efficient to store it on device in SRAM to be retrieved much quicker on later requests.
 
 This is exactly what the cache is used for. Data retrieved from external memory is stored in cache and can be retrieved from there on later requests, freeing up memory bandwidth to be used for new data.
-
-## Global Memory
-
-The GPU is built to interface with an external global memory. Here, data memory and program memory are separated out for simplicity.
 
 ## Core
 
@@ -88,7 +115,7 @@ Each core has a number of compute resources, often built around a certain number
 
 In this simplified GPU, each core processed one **block** at a time, and for each thread in a block, the core has a dedicated ALU, LSU, PC, and register file. Managing the execution of thread instructions on these resources is one of the most challening problems in GPUs.
 
-### Scheduler
+**Scheduler:**
 
 Each core has a single scheduler that manages the execution of threads.
 
@@ -98,31 +125,39 @@ In more advanced schedulers, techniques like **pipelining** are used to stream t
 
 The main constraint the scheduler has to work around is the latency associated with loading & storing data from global memory. While most instructions can be executed synchronously, these load-store operations are asynchronous, meaning the rest of the instruction execution has to be built around these long wait times.
 
-### Fetcher
+**Fetcher:**
 
 Asynchronously fetches the instruction at the current program counter from program memory (most should actually be fetching from cache after a single block is executed).
 
-### Decoder
+**Decoder:**
 
 Decodes the fetched instruction into control signals for thread execution.
 
-### Register Files
+**Register Files:**
 
 Each thread has it's own dedicated set of register files. The register files hold the data that each thread is performing computations on, which enables the same-instruction multiple-data (SIMD) pattern.
 
 Importantly, each register file contains a few read-only registers holding data about the current block & thread being executed locally, enabling kernels to be executed with different data based on the local thread id.
 
-### ALUs
+**ALUs:**
 
-Dedicated arithmetic-logic unit for each thread to perform computations.
+Dedicated arithmetic-logic unit for each thread to perform computations. Handles the `ADD`, `SUB`, `MUL`, `DIV` arithmetic instructions.
 
-### LSUs
+Also handles the `CMP` comparison instruction which actually outputs whether the result of the difference between two registers is negative, zero or positive - and stores the result in the `NZP` register in the PC unit.
+
+**LSUs:**
 
 Dedicated load-store unit for each thread to access global data memory.
 
-### PCs
+Handles the `LDR` & `STR` instructions - and handles async wait times for memory requests to be processed and relayed by the memory controller.
+
+**PCs:**
 
 Dedicated program-counter for each unit to determine the next instructions to execute on each thread.
+
+By default, the PC increments by 1 after every instruction.
+
+With the `BRnzp` instruction, the NZP register checks to see if the NZP register (set by a previous `CMP` instruction) matches some case - and if it does, it will branch to a specific line of program memory. _This is how loops and conditionals are implemented._
 
 Since threads are processed in parallel, tiny-gpu assumes that all threads "converge" to the same program counter after each instruction - which is a naive assumption for the sake of simplicity.
 
