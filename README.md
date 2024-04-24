@@ -252,9 +252,7 @@ Once you've installed the pre-requisites, you can run the kernel simulations wit
 
 Executing the simulations will output a log file in `test/logs` with the initial data memory state, complete execution trace of the kernel, and final data memory state.
 
-The `matadd` kernel adds 2 1x8 matrices across 8 threads running on 2 cores, and the `matmul` kernel multiplies 2 2x2 matrices across 4 threads.
-
-If you look at the initial for each, you should see the two start matrices for the calculation, and in final data memory you should also see the resultant matrix.
+If you look at the initial data memory state logged at the start of the logfile for each, you should see the two start matrices for the calculation, and in the final data memory at the end of the file you should also see the resultant matrix.
 
 Below is a sample of the execution traces, showing on each cycle the execution of every thread within every core, including the current instruction, PC, register values, states, etc.
 
