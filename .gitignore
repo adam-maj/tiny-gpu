@@ -2,7 +2,7 @@
 build/
 test/logs/*
 !.gitkeep
-gds/
+gds/**/*.gltf
 
 .DS_Store
 results.xml
