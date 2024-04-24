@@ -39,8 +39,6 @@ This project is primarily focused on exploring:
 2. **Parallelization** - How is the SIMD progamming model implemented in hardware?
 3. **Memory** - How does a GPU work around the constraints of limited memory bandwidth?
 
-For each topic, we'll first cover how tiny-gpu implements the fundamentals. Then, using this as a foundation, we'll explore further optimizations implemented in modern-day GPUs.
-
 # Architecture
 
 <p float="left">
@@ -261,6 +259,8 @@ If you look at the initial for each, you should see the two start matrices for t
 Below is a sample of the execution traces, showing on each cycle the execution of every thread within every core, including the current instruction, PC, register values, states, etc.
 
 ![execution trace](docs/images/trace.png)
+
+**For anyone trying to run the simulation or play with this repo, please feel free to DM me on [twitter](https://twitter.com/majmudaradam) if you run into any issues - I want you to get this running!**
 
 ## Notes
 
