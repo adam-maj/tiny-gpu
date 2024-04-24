@@ -1,6 +1,7 @@
 */**/__pycache__
 build/
-test/logs
+test/logs/*
+!.gitkeep
 gds/
 
 .DS_Store
