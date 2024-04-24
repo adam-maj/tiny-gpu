@@ -6,7 +6,6 @@ A minimal GPU implementation in Verilog optimized for learning about how GPUs wo
 - [Architecture](#architecture)
 - [ISA](#isa)
 - [Thread](#thread)
-- [Memory](#memory)
 - [Kernels](#kernels)
 - [Simulation](#simulation)
 
@@ -261,7 +260,7 @@ If you look at the initial for each, you should see the two start matrices for t
 
 Below is a sample of the execution traces, showing on each cycle the execution of every thread within every core, including the current instruction, PC, register values, states, etc.
 
-![trace.png](execution trace)
+![docs/images/trace.png](execution trace)
 
 ## Notes
 
