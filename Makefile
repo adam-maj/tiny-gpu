@@ -11,7 +11,9 @@ compile:
 	make compile_alu
 	sv2v -I src/* -w build/gpu.v
 	cat build/alu.v >> build/gpu.v
-	sed -i '' '1s/^/`timescale 1ns\/1ns\n/' build/gpu.v
+	echo '`timescale 1ns/1ns' > build/temp.v
+	cat build/gpu.v >> build/temp.v
+	mv build/temp.v build/gpu.v
 
 compile_%:
 	sv2v -w build/$*.v src/$*.sv
