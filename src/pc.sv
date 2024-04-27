@@ -24,7 +24,7 @@ module pc #(
     input reg decoded_nzp_write_enable,
     input reg decoded_pc_mux, 
 
-    // ALU Ouput - used for alu_out[2:0] to compare with NZP register
+    // ALU Output - used for alu_out[2:0] to compare with NZP register
     input reg [DATA_MEM_DATA_BITS-1:0] alu_out,
 
     // Current & Next PCs
