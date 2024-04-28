@@ -10,6 +10,7 @@ test_%:
 compile:
 	make compile_alu
 	sv2v -I src/* -w build/gpu.v
+	echo "" >> build/gpu.v
 	cat build/alu.v >> build/gpu.v
 	echo '`timescale 1ns/1ns' > build/temp.v
 	cat build/gpu.v >> build/temp.v
