@@ -7,6 +7,7 @@ Built with <15 files of fully documented Verilog, complete documentation on arch
 ### Table of Contents
 
 - [Overview](#overview)
+- [Install](#install)
 - [Architecture](#architecture)
   - [GPU](#gpu)
   - [Memory](#memory)
@@ -53,6 +54,23 @@ This project is primarily focused on exploring:
 3. **Memory** - How does a GPU work around the constraints of limited memory bandwidth?
 
 After understanding the fundamentals laid out in this project, you can checkout the [advanced functionality section](#advanced-functionality) to understand some of the most important optimizations made in production grade GPUs (that are more challenging to implement) which improve performance.
+
+# Install
+## On Mac
+
+- Install Verilog compilers
+```
+brew install icarus-verilog  
+pip3 install cocotb 
+```
+
+- Download the latest version of sv2v from https://github.com/zachjs/sv2v/releases, unzip it and put the binary in $PATH
+
+- In the folder of this repo
+```
+mkdir build
+make test_matadd
+```
 
 # Architecture
 
