@@ -8,6 +8,7 @@ test_%:
 	MODULE=test.test_$* vvp -M $$(cocotb-config --prefix)/cocotb/libs -m libcocotbvpi_icarus build/sim.vvp
 
 compile:
+	mkdir -p build
 	make compile_alu
 	sv2v -I src/* -w build/gpu.v
 	echo "" >> build/gpu.v
