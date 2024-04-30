@@ -16,24 +16,24 @@ module controller #(
     input wire reset,
 
     // Consumer Interface (Fetchers / LSUs)
-    input reg [NUM_CONSUMERS-1:0] consumer_read_valid,
-    input reg [ADDR_BITS-1:0] consumer_read_address [NUM_CONSUMERS-1:0],
+    input [NUM_CONSUMERS-1:0] consumer_read_valid,
+    input [ADDR_BITS-1:0] consumer_read_address [NUM_CONSUMERS-1:0],
     output reg [NUM_CONSUMERS-1:0] consumer_read_ready,
     output reg [DATA_BITS-1:0] consumer_read_data [NUM_CONSUMERS-1:0],
-    input reg [NUM_CONSUMERS-1:0] consumer_write_valid,
-    input reg [ADDR_BITS-1:0] consumer_write_address [NUM_CONSUMERS-1:0],
-    input reg [DATA_BITS-1:0] consumer_write_data [NUM_CONSUMERS-1:0],
+    input [NUM_CONSUMERS-1:0] consumer_write_valid,
+    input [ADDR_BITS-1:0] consumer_write_address [NUM_CONSUMERS-1:0],
+    input [DATA_BITS-1:0] consumer_write_data [NUM_CONSUMERS-1:0],
     output reg [NUM_CONSUMERS-1:0] consumer_write_ready,
 
     // Memory Interface (Data / Program)
     output reg [NUM_CHANNELS-1:0] mem_read_valid,
     output reg [ADDR_BITS-1:0] mem_read_address [NUM_CHANNELS-1:0],
-    input reg [NUM_CHANNELS-1:0] mem_read_ready,
-    input reg [DATA_BITS-1:0] mem_read_data [NUM_CHANNELS-1:0],
+    input [NUM_CHANNELS-1:0] mem_read_ready,
+    input [DATA_BITS-1:0] mem_read_data [NUM_CHANNELS-1:0],
     output reg [NUM_CHANNELS-1:0] mem_write_valid,
     output reg [ADDR_BITS-1:0] mem_write_address [NUM_CHANNELS-1:0],
     output reg [DATA_BITS-1:0] mem_write_data [NUM_CHANNELS-1:0],
-    input reg [NUM_CHANNELS-1:0] mem_write_ready
+    input [NUM_CHANNELS-1:0] mem_write_ready
 );
     localparam IDLE = 3'b000, 
         READ_WAITING = 3'b010, 
