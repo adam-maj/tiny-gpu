@@ -7,7 +7,6 @@ Built with <15 files of fully documented Verilog, complete documentation on arch
 ### Table of Contents
 
 - [Overview](#overview)
-- [Install](#install)
 - [Architecture](#architecture)
   - [GPU](#gpu)
   - [Memory](#memory)
@@ -54,23 +53,6 @@ This project is primarily focused on exploring:
 3. **Memory** - How does a GPU work around the constraints of limited memory bandwidth?
 
 After understanding the fundamentals laid out in this project, you can checkout the [advanced functionality section](#advanced-functionality) to understand some of the most important optimizations made in production grade GPUs (that are more challenging to implement) which improve performance.
-
-# Install
-## On Mac
-
-- Install Verilog compilers
-```
-brew install icarus-verilog  
-pip3 install cocotb 
-```
-
-- Download the latest version of sv2v from https://github.com/zachjs/sv2v/releases, unzip it and put the binary in $PATH
-
-- In the folder of this repo
-```
-mkdir build
-make test_matadd
-```
 
 # Architecture
 
@@ -331,7 +313,13 @@ RET                            ; end of kernel
 
 # Simulation
 
-tiny-gpu is setup to simulate the execution of both of the above kernels. Before simulating, you'll need to install [iverilog](https://steveicarus.github.io/iverilog/usage/installation.html) and [cocotb](https://docs.cocotb.org/en/stable/install.html).
+tiny-gpu is setup to simulate the execution of both of the above kernels. Before simulating, you'll need to install [iverilog](https://steveicarus.github.io/iverilog/usage/installation.html) and [cocotb](https://docs.cocotb.org/en/stable/install.html):
+
+- Install Verilog compilers with `brew install icarus-verilog` and `pip3 install cocotb`
+
+- Download the latest version of sv2v from https://github.com/zachjs/sv2v/releases, unzip it and put the binary in $PATH.
+
+- Run `mkdir build` in the root directory of this repository.
 
 Once you've installed the pre-requisites, you can run the kernel simulations with `make test_matadd` and `make test_matmul`.
 
