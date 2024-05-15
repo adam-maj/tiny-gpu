@@ -317,6 +317,9 @@ tiny-gpu is setup to simulate the execution of both of the above kernels. Before
 
 - Install Verilog compilers with `brew install icarus-verilog` and `pip3 install cocotb`
 - Download the latest version of sv2v from https://github.com/zachjs/sv2v/releases, unzip it and put the binary in $PATH.
+  - If you try to build sv2v from the source, it is necessary to install Stack. For most Linux distributions, the easiest way to install Stack directly (rather than use GHCup) is to command:
+    `curl -sSL https://get.haskellstack.org/ | sh` or `wget -qO- https://get.haskellstack.org/ | sh`. sv2v will be installed into the `/usr/local/bin/` folder.
+  - Then you just need to git the sv2v repository (git clone https://github.com/zachjs/sv2v.git), and run `make`.
 - Run `mkdir build` in the root directory of this repository.
 
 Once you've installed the pre-requisites, you can run the kernel simulations with `make test_matadd` and `make test_matmul`.
