@@ -5,11 +5,12 @@
 // > Handles asynchronous memory load and store operations and waits for response
 // > Each thread in each core has it's own LSU
 // > LDR, STR instructions are executed here
+//LDR是加载指令和内存地址，STR是存储指令和内存地址
 module lsu (
     input wire clk,
     input wire reset,
     input wire enable, // If current block has less threads then block size, some LSUs will be inactive
-
+//enable信号可以控制吃模块是否开启，在进程数小于块大小时，一些LSUs将处于非活动状态
     // State
     input reg [2:0] core_state,
 
@@ -38,7 +39,7 @@ module lsu (
     localparam IDLE = 2'b00, REQUESTING = 2'b01, WAITING = 2'b10, DONE = 2'b11;
 
     always @(posedge clk) begin
-        if (reset) begin
+        if (reset) begin//复位逻辑
             lsu_state <= IDLE;
             lsu_out <= 0;
             mem_read_valid <= 0;
