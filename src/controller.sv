@@ -64,7 +64,6 @@ module controller #(
 
             channel_serving_consumer = 0;
         end else begin 
-            // For each channel, we handle processing concurrently
             for (int i = 0; i < NUM_CHANNELS; i = i + 1) begin 
                 case (controller_state[i])
                     IDLE: begin
