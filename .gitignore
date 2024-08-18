@@ -6,3 +6,5 @@ gds/**/*.gltf
 
 .DS_Store
 results.xml
+
+sim_build/**

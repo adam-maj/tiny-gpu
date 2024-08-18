@@ -5,7 +5,7 @@ export LIBPYTHON_LOC=$(shell cocotb-config --libpython)
 test_%:
 	make compile
 	iverilog -o build/sim.vvp -s gpu -g2012 build/gpu.v
-	MODULE=test.test_$* vvp -M $$(cocotb-config --prefix)/cocotb/libs -m libcocotbvpi_icarus build/sim.vvp
+	MODULE=test.test_$* vvp -M $$(cocotb-config --prefix)/cocotb/libs -m libcocotbvpi_icarus build/sim.vvp -fst
 
 compile:
 	make compile_alu
@@ -19,7 +19,12 @@ compile:
 compile_%:
 	sv2v -w build/$*.v src/$*.sv
 
-# TODO: Get gtkwave visualizaiton
+# The gtkwave FST file -> sim_build/gpu.fst
+test.test_%: compile
+	make -f Makefile.cocotb.mk MODULE=$@
 
 show_%: %.vcd %.gtkw
 	gtkwave $^
+
+clean:
+	rm -rf build/* sim_build
