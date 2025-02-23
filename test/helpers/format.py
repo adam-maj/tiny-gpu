@@ -10,7 +10,7 @@ def format_register(register: int) -> str:
         return f"%blockDim"
     if register == 15:
         return f"%threadIdx"
-    
+
 def format_instruction(instruction: str) -> str:
     opcode = instruction[0:4]
     rd = format_register(int(instruction[4:8], 2))
@@ -104,6 +104,7 @@ def format_cycle(dut, cycle_id: int, thread_id: Optional[int] = None):
 
         logger.debug(f"\n+--------------------- Core {core.i.value} ---------------------+")
 
+        dir(core.core_instance)
         instruction = str(core.core_instance.instruction.value)
         for thread in core.core_instance.threads:
             if int(thread.i.value) < int(str(core.core_instance.thread_count.value), 2): # if enabled
