@@ -320,6 +320,7 @@ tiny-gpu is setup to simulate the execution of both of the above kernels. Before
 - Run `mkdir build` in the root directory of this repository.
 
 Once you've installed the pre-requisites, you can run the kernel simulations with `make test_matadd` and `make test_matmul`.
+You can also view the waveforms using `make show_matadd` and `make show_matmul`.
 
 Executing the simulations will output a log file in `test/logs` with the initial data memory state, complete execution trace of the kernel, and final data memory state.
 
