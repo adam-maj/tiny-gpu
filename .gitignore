@@ -6,3 +6,6 @@ gds/**/*.gltf
 
 .DS_Store
 results.xml
+
+*.vcd
+*.gtkw

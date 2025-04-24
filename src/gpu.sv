@@ -72,6 +72,11 @@ module gpu #(
     reg [NUM_FETCHERS-1:0] fetcher_read_ready;
     reg [PROGRAM_MEM_DATA_BITS-1:0] fetcher_read_data [NUM_FETCHERS-1:0];
     
+    initial begin
+        $dumpfile("gpu.vcd");
+        $dumpvars(0, gpu);
+    end
+
     // Device Control Register
     dcr dcr_instance (
         .clk(clk),

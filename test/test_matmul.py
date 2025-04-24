@@ -6,7 +6,7 @@ from .helpers.format import format_cycle
 from .helpers.logger import logger
 
 @cocotb.test()
-async def test_matadd(dut):
+async def test_matmul(dut):
     # Program Memory
     program_memory = Memory(dut=dut, addr_bits=8, data_bits=16, channels=1, name="program")
     program = [

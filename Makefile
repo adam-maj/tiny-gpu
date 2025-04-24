@@ -19,7 +19,8 @@ compile:
 compile_%:
 	sv2v -w build/$*.v src/$*.sv
 
-# TODO: Get gtkwave visualizaiton
+.SECONDEXPANSION:
 
-show_%: %.vcd %.gtkw
+# A .gtkw file is optional
+show_%: %.vcd $$(wildcard $$*.gtkw)
 	gtkwave $^
