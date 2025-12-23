@@ -144,8 +144,8 @@ module core #(
                 .rt(rt[i]),
                 .alu_out(alu_out[i])
             );
-
-            // LSU
+            
+            // LSU with Cache
             lsu lsu_instance (
                 .clk(clk),
                 .reset(reset),
