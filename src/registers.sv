@@ -68,9 +68,6 @@ module registers #(
             registers[14] <= THREADS_PER_BLOCK; // %blockDim
             registers[15] <= THREAD_ID;         // %threadIdx
         end else if (enable) begin 
-            // [Bad Solution] Shouldn't need to set this every cycle
-            registers[13] <= block_id; // Update the block_id when a new block is issued from dispatcher
-            
             // Fill rs/rt when core_state = REQUEST
             if (core_state == 3'b011) begin 
                 rs <= registers[decoded_rs_address];
