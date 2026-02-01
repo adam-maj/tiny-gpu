@@ -331,6 +331,12 @@ Below is a sample of the execution traces, showing on each cycle the execution o
 
 **For anyone trying to run the simulation or play with this repo, please feel free to DM me on [twitter](https://twitter.com/majmudaradam) if you run into any issues - I want you to get this running!**
 
+## Visualization
+
+The whole GPU is also visualized in [*Digital*](https://github.com/hneemann/Digital). You can play around with different components by manually setting inputs and observing outputs very easily. To view the top `gpu.dig` module, make sure you have [*Digital*](https://github.com/hneemann/Digital) and `icarus-verilog` installed.
+
+![tiny-gpu simulated in *Digital*](docs/images/gpu-digital.png)
+
 # Advanced Functionality
 
 For the sake of simplicity, there were many additional features implemented in modern GPUs that heavily improve performance & functionality that tiny-gpu omits. We'll discuss some of those most critical features in this section.
