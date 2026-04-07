@@ -1,0 +1,375 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup: create build directory",
+      "type": "shell",
+      "command": "mkdir -p build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Tools: print tool versions",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "echo '--- PATH ---' && printf '%s\n' \"$PATH\" && echo && echo '--- cocotb ---' && cocotb-config --version && echo && echo '--- iverilog ---' && iverilog -V && echo && echo '--- vvp ---' && vvp -V && echo && echo '--- sv2v ---' && sv2v --version"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile full design",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "rm -f build/gpu.v build/temp.v build/sim.vvp && ulimit -n 4096 && make compile"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile alu",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_alu"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile controller",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_controller"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile core",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_core"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile dcr",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_dcr"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile decoder",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_decoder"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile dispatch",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_dispatch"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile fetcher",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_fetcher"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile gpu",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_gpu"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile lsu",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_lsu"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile pc",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_pc"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile registers",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_registers"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: compile scheduler",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "ulimit -n 4096 && make compile_scheduler"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: matadd",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "rm -f build/gpu.v build/temp.v build/sim.vvp && ulimit -n 4096 && make test_matadd"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: matmul",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "rm -f build/gpu.v build/temp.v build/sim.vvp && ulimit -n 4096 && make test_matmul"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "problemMatcher": []
+    },
+    {
+      "label": "Debug: matadd (debugpy wait)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "rm -f build/gpu.v build/temp.v build/sim.vvp && ulimit -n 4096 && COCOTB_DEBUGPY=1 COCOTB_DEBUGPY_WAIT=1 COCOTB_DEBUGPY_HOST=127.0.0.1 COCOTB_DEBUGPY_PORT=5678 make test_matadd"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "cocotb-debug",
+        "pattern": [
+          {
+            "regexp": ".+",
+            "file": 1,
+            "location": 1,
+            "message": 1
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "endsPattern": "\\[cocotb-debug\\] Waiting for debugger attach on .*"
+        }
+      }
+    },
+    {
+      "label": "Debug: matmul (debugpy wait)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "rm -f build/gpu.v build/temp.v build/sim.vvp && ulimit -n 4096 && COCOTB_DEBUGPY=1 COCOTB_DEBUGPY_WAIT=1 COCOTB_DEBUGPY_HOST=127.0.0.1 COCOTB_DEBUGPY_PORT=5678 make test_matmul"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "cocotb-debug",
+        "pattern": [
+          {
+            "regexp": ".+",
+            "file": 1,
+            "location": 1,
+            "message": 1
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "endsPattern": "\\[cocotb-debug\\] Waiting for debugger attach on .*"
+        }
+      }
+    },
+    {
+      "label": "Debug: selected cocotb module (debugpy wait)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "rm -f build/gpu.v build/temp.v build/sim.vvp && ulimit -n 4096 && COCOTB_DEBUGPY=1 COCOTB_DEBUGPY_WAIT=1 COCOTB_DEBUGPY_HOST=127.0.0.1 COCOTB_DEBUGPY_PORT=5678 MODULE=${input:cocotbModule} make test_matadd"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Setup: create build directory",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "cocotb-debug",
+        "pattern": [
+          {
+            "regexp": ".+",
+            "file": 1,
+            "location": 1,
+            "message": 1
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "endsPattern": "\\[cocotb-debug\\] Waiting for debugger attach on .*"
+        }
+      }
+    },
+    {
+      "label": "Logs: show latest test log path",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-c",
+        "from pathlib import Path; logs=sorted(Path('test/logs').glob('log_*.txt'), key=lambda p: p.stat().st_mtime); print(logs[-1].resolve() if logs else 'No log files found')"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Logs: print latest test log",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-c",
+        "from pathlib import Path; logs=sorted(Path('test/logs').glob('log_*.txt'), key=lambda p: p.stat().st_mtime); print('No log files found' if not logs else str(logs[-1].resolve()) + '\\n\\n' + logs[-1].read_text())"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Logs: open latest test log in VS Code",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "latest=$(python -c \"from pathlib import Path; logs=sorted(Path('test/logs').glob('log_*.txt'), key=lambda p: p.stat().st_mtime); print(logs[-1].resolve() if logs else '')\"); if [ -z \"$latest\" ]; then echo 'No log files found'; elif command -v code >/dev/null 2>&1; then code -r \"$latest\" && echo \"Opened $latest\"; else echo 'VS Code CLI (code) not found; latest log path:' && echo \"$latest\"; fi"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "cocotbModule",
+      "type": "pickString",
+      "description": "Select the cocotb test module to run under debugpy",
+      "options": [
+        "test.test_matadd",
+        "test.test_matmul"
+      ],
+      "default": "test.test_matadd"
+    }
+  ]
+}

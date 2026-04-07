@@ -1,0 +1,14 @@
+{
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "files.associations": {
+    "*.sv": "systemverilog"
+  },
+  "search.exclude": {
+    "build": true,
+    "test/logs": true,
+    "**/__pycache__": true
+  },
+  "files.exclude": {
+    "**/__pycache__": true
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run full test: matadd",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "bash",
+      "args": [
+        "-lc",
+        "rm -f build/gpu.v build/temp.v build/sim.vvp && ulimit -n 4096 && make test_matadd"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "preLaunchTask": "Setup: create build directory"
+    },
+    {
+      "name": "Run full test: matmul",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "bash",
+      "args": [
+        "-lc",
+        "rm -f build/gpu.v build/temp.v build/sim.vvp && ulimit -n 4096 && make test_matmul"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "preLaunchTask": "Setup: create build directory"
+    },
+    {
+      "name": "Attach: cocotb debugpy (5678)",
+      "type": "python",
+      "request": "attach",
+      "connect": {
+        "host": "127.0.0.1",
+        "port": 5678
+      },
+      "justMyCode": false,
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "${workspaceFolder}"
+        }
+      ]
+    },
+    {
+      "name": "Debug Python cocotb: matadd",
+      "type": "python",
+      "request": "attach",
+      "connect": {
+        "host": "127.0.0.1",
+        "port": 5678
+      },
+      "justMyCode": false,
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "${workspaceFolder}"
+        }
+      ],
+      "preLaunchTask": "Debug: matadd (debugpy wait)"
+    },
+    {
+      "name": "Debug Python cocotb: matmul",
+      "type": "python",
+      "request": "attach",
+      "connect": {
+        "host": "127.0.0.1",
+        "port": 5678
+      },
+      "justMyCode": false,
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "${workspaceFolder}"
+        }
+      ],
+      "preLaunchTask": "Debug: matmul (debugpy wait)"
+    },
+    {
+      "name": "Debug Python cocotb: selected module",
+      "type": "python",
+      "request": "attach",
+      "connect": {
+        "host": "127.0.0.1",
+        "port": 5678
+      },
+      "justMyCode": false,
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "${workspaceFolder}"
+        }
+      ],
+      "preLaunchTask": "Debug: selected cocotb module (debugpy wait)"
+    },
+    {
+      "name": "Run helper: latest test log path",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "bash",
+      "args": [
+        "-lc",
+        "python -c \"from pathlib import Path; logs=sorted(Path('test/logs').glob('log_*.txt'), key=lambda p: p.stat().st_mtime); print(logs[-1].resolve() if logs else 'No log files found')\""
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    }
+  ]
+}
