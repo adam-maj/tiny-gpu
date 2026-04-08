@@ -1,0 +1,31 @@
+# Tiny Tapeout project information
+# See: https://tinytapeout.com/specs/
+
+project:
+  title: "Tiny GPU"
+  author: "LKG GPU Project"
+  discord: ""
+  description: "A minimal educational GPU implementation for Tiny Tapeout"
+  language: "Verilog"
+  clock_hz: 10000000  # 10 MHz default clock
+
+# Source files
+sources:
+  - tt_um_tiny_gpu.sv
+
+# Top level module
+top_module: "tt_um_tiny_gpu"
+
+# Documentation
+documentation_url: ""
+source_url: "https://github.com/VidhyaSanjeevi/lkg-gpu"
+
+# Hardware
+hardware:
+  # Number of tiles used (each tile is ~160x225 um)
+  tiles: 1
+  
+# Pinout (defined by Tiny Tapeout standard)
+# ui_in[7:0]  - 8 dedicated input pins
+# uo_out[7:0] - 8 dedicated output pins  
+# uio[7:0]    - 8 bidirectional I/O pins

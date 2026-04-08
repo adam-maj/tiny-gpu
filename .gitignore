@@ -6,3 +6,34 @@ gds/**/*.gltf
 
 .DS_Store
 results.xml
+docs/*.md
+
+sim_build/**
+
+# Python virtual environment
+.venv/
+venv/
+env/
+*.pyc
+*.pyo
+
+# Debug and simulation files
+*.vcd
+*.fst
+*.lxt
+*.lxt2
+*.vvp
+*.log
+dump.vcd
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.bak
+*.orig

@@ -189,7 +189,7 @@ module gpu #(
                 .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
                 .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS),
-                .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
+                .THREADS_PER_BLOCK(THREADS_PER_BLOCK)
             ) core_instance (
                 .clk(clk),
                 .reset(core_reset[i]),

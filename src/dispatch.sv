@@ -17,7 +17,7 @@ module dispatch #(
     input wire [7:0] thread_count,
 
     // Core States
-    input reg [NUM_CORES-1:0] core_done,
+    input [NUM_CORES-1:0] core_done,
     output reg [NUM_CORES-1:0] core_start,
     output reg [NUM_CORES-1:0] core_reset,
     output reg [7:0] core_block_id [NUM_CORES-1:0],
@@ -70,11 +70,11 @@ module dispatch #(
                     if (blocks_dispatched < total_blocks) begin 
                         core_start[i] <= 1;
                         core_block_id[i] <= blocks_dispatched;
-                        core_thread_count[i] <= (blocks_dispatched == total_blocks - 1) 
+                        core_thread_count[i] <= (blocks_dispatched == total_blocks - 1)
                             ? thread_count - (blocks_dispatched * THREADS_PER_BLOCK)
                             : THREADS_PER_BLOCK;
 
-                        blocks_dispatched = blocks_dispatched + 1;
+                        blocks_dispatched <= blocks_dispatched + 1;
                     end
                 end
             end
@@ -84,7 +84,7 @@ module dispatch #(
                     // If a core just finished executing it's current block, reset it
                     core_reset[i] <= 1;
                     core_start[i] <= 0;
-                    blocks_done = blocks_done + 1;
+                    blocks_done <= blocks_done + 1;
                 end
             end
         end

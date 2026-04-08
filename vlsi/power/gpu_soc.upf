@@ -1,0 +1,356 @@
+################################################################################
+# LKG-GPU Power Intent (UPF 2.1)
+# Unified Power Format for ASIC Power Management
+# Target: Multi-voltage, Power Gating, DVFS
+################################################################################
+
+upf_version 2.1
+
+################################################################################
+# Supply Network
+################################################################################
+
+# Top-level power ports
+create_supply_port VDD  -direction in
+create_supply_port VDDM -direction in  ;# Memory voltage
+create_supply_port VDDL -direction in  ;# Low voltage domain
+create_supply_port VSS  -direction in  ;# Ground
+
+# Always-on supply port
+create_supply_port VDD_AON -direction in
+
+################################################################################
+# Power Domains
+################################################################################
+
+# Top-level always-on domain
+create_power_domain PD_TOP \
+    -elements {.} \
+    -supply {primary VDD VSS}
+
+# GPU Core domain (can be power gated)
+create_power_domain PD_GPU_CORE \
+    -elements { \
+        u_command_processor \
+        u_geometry_engine \
+        u_rasterizer \
+        u_render_output_unit \
+    } \
+    -supply {primary VDD_CORE VSS}
+
+# Shader Cores domain (can be power gated independently)
+create_power_domain PD_SHADER \
+    -elements { \
+        u_shader_core_* \
+        u_warp_scheduler_* \
+        u_shared_memory_* \
+    } \
+    -supply {primary VDD_SHADER VSS}
+
+# Memory Controller domain
+create_power_domain PD_MEMORY \
+    -elements { \
+        u_memory_controller \
+        u_l2_cache \
+        u_dma_engine \
+    } \
+    -supply {primary VDD_MEM VSS}
+
+# Display domain (can be power gated when no display connected)
+create_power_domain PD_DISPLAY \
+    -elements { \
+        u_display_controller \
+    } \
+    -supply {primary VDD_DISP VSS}
+
+# Enterprise features domain
+create_power_domain PD_ENTERPRISE \
+    -elements { \
+        u_ray_tracing_unit \
+        u_tensor_processing_unit \
+        u_video_decode_unit \
+    } \
+    -supply {primary VDD_ENT VSS}
+
+# PCIe domain (always on for host communication)
+create_power_domain PD_PCIE \
+    -elements { \
+        u_pcie_controller \
+    } \
+    -supply {primary VDD_AON VSS}
+
+# Infrastructure domain (always on)
+create_power_domain PD_INFRA \
+    -elements { \
+        u_clock_reset_controller \
+        u_power_management_unit \
+        u_interrupt_controller \
+        u_debug_controller \
+    } \
+    -supply {primary VDD_AON VSS}
+
+################################################################################
+# Supply Nets
+################################################################################
+
+# Primary supplies
+create_supply_net VDD         -domain PD_TOP
+create_supply_net VSS         -domain PD_TOP
+create_supply_net VDD_AON     -domain PD_TOP
+
+# Switchable supplies for power-gated domains
+create_supply_net VDD_CORE    -domain PD_GPU_CORE
+create_supply_net VDD_SHADER  -domain PD_SHADER
+create_supply_net VDD_MEM     -domain PD_MEMORY
+create_supply_net VDD_DISP    -domain PD_DISPLAY
+create_supply_net VDD_ENT     -domain PD_ENTERPRISE
+
+# Virtual ground (for power gating)
+create_supply_net VSS_CORE    -domain PD_GPU_CORE
+create_supply_net VSS_SHADER  -domain PD_SHADER
+create_supply_net VSS_MEM     -domain PD_MEMORY
+create_supply_net VSS_DISP    -domain PD_DISPLAY
+create_supply_net VSS_ENT     -domain PD_ENTERPRISE
+
+################################################################################
+# Supply Connections
+################################################################################
+
+connect_supply_net VDD     -ports {VDD}
+connect_supply_net VDDM    -ports {VDDM}
+connect_supply_net VDDL    -ports {VDDL}
+connect_supply_net VSS     -ports {VSS}
+connect_supply_net VDD_AON -ports {VDD_AON}
+
+################################################################################
+# Power Switches
+################################################################################
+
+# GPU Core power switch
+create_power_switch SW_GPU_CORE \
+    -domain PD_GPU_CORE \
+    -input_supply_port {VDDG VDD} \
+    -output_supply_port {VDD_SW VDD_CORE} \
+    -control_port {gpu_core_pwr_en u_power_management_unit/core_power_en} \
+    -on_state {on_state VDDG {gpu_core_pwr_en}} \
+    -off_state {off_state {!gpu_core_pwr_en}}
+
+# Shader power switch (fine-grained per CU group possible)
+create_power_switch SW_SHADER \
+    -domain PD_SHADER \
+    -input_supply_port {VDDG VDD} \
+    -output_supply_port {VDD_SW VDD_SHADER} \
+    -control_port {shader_pwr_en u_power_management_unit/shader_power_en} \
+    -on_state {on_state VDDG {shader_pwr_en}} \
+    -off_state {off_state {!shader_pwr_en}}
+
+# Memory domain power switch
+create_power_switch SW_MEMORY \
+    -domain PD_MEMORY \
+    -input_supply_port {VDDM VDDM} \
+    -output_supply_port {VDD_SW VDD_MEM} \
+    -control_port {mem_pwr_en u_power_management_unit/memory_power_en} \
+    -on_state {on_state VDDM {mem_pwr_en}} \
+    -off_state {off_state {!mem_pwr_en}}
+
+# Display power switch
+create_power_switch SW_DISPLAY \
+    -domain PD_DISPLAY \
+    -input_supply_port {VDDG VDD} \
+    -output_supply_port {VDD_SW VDD_DISP} \
+    -control_port {disp_pwr_en u_power_management_unit/display_power_en} \
+    -on_state {on_state VDDG {disp_pwr_en}} \
+    -off_state {off_state {!disp_pwr_en}}
+
+# Enterprise features power switch
+create_power_switch SW_ENTERPRISE \
+    -domain PD_ENTERPRISE \
+    -input_supply_port {VDDG VDD} \
+    -output_supply_port {VDD_SW VDD_ENT} \
+    -control_port {ent_pwr_en u_power_management_unit/enterprise_power_en} \
+    -on_state {on_state VDDG {ent_pwr_en}} \
+    -off_state {off_state {!ent_pwr_en}}
+
+################################################################################
+# Retention
+################################################################################
+
+# Shader register retention
+set_retention RET_SHADER \
+    -domain PD_SHADER \
+    -retention_power_net VDD_AON \
+    -retention_ground_net VSS \
+    -save_signal {u_power_management_unit/shader_save posedge} \
+    -restore_signal {u_power_management_unit/shader_restore posedge}
+
+# GPU Core retention
+set_retention RET_GPU_CORE \
+    -domain PD_GPU_CORE \
+    -retention_power_net VDD_AON \
+    -retention_ground_net VSS \
+    -save_signal {u_power_management_unit/core_save posedge} \
+    -restore_signal {u_power_management_unit/core_restore posedge}
+
+# Enterprise retention
+set_retention RET_ENTERPRISE \
+    -domain PD_ENTERPRISE \
+    -retention_power_net VDD_AON \
+    -retention_ground_net VSS \
+    -save_signal {u_power_management_unit/ent_save posedge} \
+    -restore_signal {u_power_management_unit/ent_restore posedge}
+
+################################################################################
+# Isolation
+################################################################################
+
+# GPU Core isolation
+set_isolation ISO_GPU_CORE \
+    -domain PD_GPU_CORE \
+    -isolation_power_net VDD_AON \
+    -isolation_ground_net VSS \
+    -clamp_value 0 \
+    -applies_to outputs \
+    -isolation_signal {u_power_management_unit/core_isolate} \
+    -isolation_sense high \
+    -location parent
+
+# Shader isolation
+set_isolation ISO_SHADER \
+    -domain PD_SHADER \
+    -isolation_power_net VDD_AON \
+    -isolation_ground_net VSS \
+    -clamp_value 0 \
+    -applies_to outputs \
+    -isolation_signal {u_power_management_unit/shader_isolate} \
+    -isolation_sense high \
+    -location parent
+
+# Memory isolation
+set_isolation ISO_MEMORY \
+    -domain PD_MEMORY \
+    -isolation_power_net VDD_AON \
+    -isolation_ground_net VSS \
+    -clamp_value 0 \
+    -applies_to outputs \
+    -isolation_signal {u_power_management_unit/memory_isolate} \
+    -isolation_sense high \
+    -location parent
+
+# Display isolation
+set_isolation ISO_DISPLAY \
+    -domain PD_DISPLAY \
+    -isolation_power_net VDD_AON \
+    -isolation_ground_net VSS \
+    -clamp_value 0 \
+    -applies_to outputs \
+    -isolation_signal {u_power_management_unit/display_isolate} \
+    -isolation_sense high \
+    -location parent
+
+# Enterprise isolation
+set_isolation ISO_ENTERPRISE \
+    -domain PD_ENTERPRISE \
+    -isolation_power_net VDD_AON \
+    -isolation_ground_net VSS \
+    -clamp_value 0 \
+    -applies_to outputs \
+    -isolation_signal {u_power_management_unit/enterprise_isolate} \
+    -isolation_sense high \
+    -location parent
+
+################################################################################
+# Level Shifters
+################################################################################
+
+# Core to Memory (different voltage domains)
+set_level_shifter LS_CORE_TO_MEM \
+    -domain PD_GPU_CORE \
+    -applies_to outputs \
+    -rule both \
+    -location parent \
+    -input_supply {VDD_CORE} \
+    -output_supply {VDD_MEM}
+
+# Memory to Core
+set_level_shifter LS_MEM_TO_CORE \
+    -domain PD_MEMORY \
+    -applies_to outputs \
+    -rule both \
+    -location parent \
+    -input_supply {VDD_MEM} \
+    -output_supply {VDD_CORE}
+
+# AON to Core
+set_level_shifter LS_AON_TO_CORE \
+    -domain PD_INFRA \
+    -applies_to outputs \
+    -rule both \
+    -location parent \
+    -input_supply {VDD_AON} \
+    -output_supply {VDD_CORE}
+
+################################################################################
+# Power State Table (for DVFS)
+################################################################################
+
+# Define power states
+add_power_state PD_SHADER.shader_on \
+    -supply_set {primary} \
+    -logic_state {on}
+
+add_power_state PD_SHADER.shader_ret \
+    -supply_set {primary} \
+    -logic_state {retention}
+
+add_power_state PD_SHADER.shader_off \
+    -supply_set {primary} \
+    -logic_state {off}
+
+add_power_state PD_GPU_CORE.core_on \
+    -supply_set {primary} \
+    -logic_state {on}
+
+add_power_state PD_GPU_CORE.core_ret \
+    -supply_set {primary} \
+    -logic_state {retention}
+
+add_power_state PD_GPU_CORE.core_off \
+    -supply_set {primary} \
+    -logic_state {off}
+
+################################################################################
+# Power State Transitions
+################################################################################
+
+# Define legal state transitions for orderly power management
+create_pst gpu_power_states \
+    -supplies {VDD_CORE VDD_SHADER VDD_MEM VDD_DISP VDD_ENT VDD_AON VSS}
+
+# All on state (full performance)
+add_pst_state all_on \
+    -pst gpu_power_states \
+    -state {FULL_ON FULL_ON FULL_ON FULL_ON FULL_ON FULL_ON FULL_ON}
+
+# Shader off state (graphics idle)
+add_pst_state shader_off \
+    -pst gpu_power_states \
+    -state {FULL_ON OFF FULL_ON FULL_ON FULL_ON FULL_ON FULL_ON}
+
+# Display off state (headless compute)
+add_pst_state display_off \
+    -pst gpu_power_states \
+    -state {FULL_ON FULL_ON FULL_ON OFF FULL_ON FULL_ON FULL_ON}
+
+# Enterprise off state (no RT/AI/Video)
+add_pst_state enterprise_off \
+    -pst gpu_power_states \
+    -state {FULL_ON FULL_ON FULL_ON FULL_ON OFF FULL_ON FULL_ON}
+
+# Deep sleep (only PCIe and PMU on)
+add_pst_state deep_sleep \
+    -pst gpu_power_states \
+    -state {OFF OFF OFF OFF OFF FULL_ON FULL_ON}
+
+################################################################################
+# End of UPF
+################################################################################

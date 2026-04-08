@@ -313,7 +313,7 @@ RET                            ; end of kernel
 
 # Simulation
 
-tiny-gpu is setup to simulate the execution of both of the above kernels. Before simulating, you'll need to install [iverilog](https://steveicarus.github.io/iverilog/usage/installation.html) and [cocotb](https://docs.cocotb.org/en/stable/install.html):
+tiny-gpu is setup to simulate the execution of both of the above kernels. Before simulating, you'll need to install [iverilog](https://steveicarus.github.io/iverilog/usage/installation.html), [cocotb](https://docs.cocotb.org/en/stable/install.html) and [sv2v](https://github.com/zachjs/sv2v).
 
 - Install Verilog compilers with `brew install icarus-verilog` and `pip3 install cocotb`
 - Download the latest version of sv2v from https://github.com/zachjs/sv2v/releases, unzip it and put the binary in $PATH.

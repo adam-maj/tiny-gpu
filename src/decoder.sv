@@ -8,8 +8,8 @@ module decoder (
     input wire clk,
     input wire reset,
 
-    input reg [2:0] core_state,
-    input reg [15:0] instruction,
+    input [2:0] core_state,
+    input [15:0] instruction,
     
     // Instruction Signals
     output reg [3:0] decoded_rd_address,

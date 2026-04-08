@@ -2,8 +2,8 @@
 `timescale 1ns/1ns
 
 // PROGRAM COUNTER
-// > Calculates the next PC for each thread to update to (but currently we assume all threads
-//   update to the same PC and don't support branch divergence)
+// > Calculates the next PC for each thread to update to
+// > Supports branch divergence by outputting branch_taken signal
 // > Currently, each thread in each core has it's own calculation for next PC
 // > The NZP register value is set by the CMP instruction (based on >/=/< comparison) to 
 //   initiate the BRnzp instruction for branching
@@ -16,30 +16,39 @@ module pc #(
     input wire enable, // If current block has less threads then block size, some PCs will be inactive
 
     // State
-    input reg [2:0] core_state,
+    input [2:0] core_state,
 
     // Control Signals
-    input reg [2:0] decoded_nzp,
-    input reg [DATA_MEM_DATA_BITS-1:0] decoded_immediate,
-    input reg decoded_nzp_write_enable,
-    input reg decoded_pc_mux, 
+    input [2:0] decoded_nzp,
+    input [DATA_MEM_DATA_BITS-1:0] decoded_immediate,
+    input decoded_nzp_write_enable,
+    input decoded_pc_mux,
 
     // ALU Output - used for alu_out[2:0] to compare with NZP register
-    input reg [DATA_MEM_DATA_BITS-1:0] alu_out,
+    input [DATA_MEM_DATA_BITS-1:0] alu_out,
 
     // Current & Next PCs
-    input reg [PROGRAM_MEM_ADDR_BITS-1:0] current_pc,
-    output reg [PROGRAM_MEM_ADDR_BITS-1:0] next_pc
+    input [PROGRAM_MEM_ADDR_BITS-1:0] current_pc,
+    output reg [PROGRAM_MEM_ADDR_BITS-1:0] next_pc,
+    
+    // Branch divergence support
+    output reg branch_taken  // 1 if this thread will take the branch
 );
     reg [2:0] nzp;
+
+    // Determine if branch would be taken (combinational for divergence unit)
+    wire will_branch = decoded_pc_mux && ((nzp & decoded_nzp) != 3'b0);
 
     always @(posedge clk) begin
         if (reset) begin
             nzp <= 3'b0;
             next_pc <= 0;
+            branch_taken <= 0;
         end else if (enable) begin
             // Update PC when core_state = EXECUTE
             if (core_state == 3'b101) begin 
+                branch_taken <= will_branch;
+                
                 if (decoded_pc_mux == 1) begin 
                     if (((nzp & decoded_nzp) != 3'b0)) begin 
                         // On BRnzp instruction, branch to immediate if NZP case matches previous CMP
@@ -51,6 +60,7 @@ module pc #(
                 end else begin 
                     // By default update to PC + 1 (next line)
                     next_pc <= current_pc + 1;
+                    branch_taken <= 0;
                 end
             end   
 

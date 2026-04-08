@@ -11,13 +11,13 @@ module alu (
     input wire reset,
     input wire enable, // If current block has less threads then block size, some ALUs will be inactive
 
-    input reg [2:0] core_state,
+    input [2:0] core_state,
 
-    input reg [1:0] decoded_alu_arithmetic_mux,
-    input reg decoded_alu_output_mux,
+    input [1:0] decoded_alu_arithmetic_mux,
+    input decoded_alu_output_mux,
 
-    input reg [7:0] rs,
-    input reg [7:0] rt,
+    input [7:0] rs,
+    input [7:0] rt,
     output wire [7:0] alu_out
 );
     localparam ADD = 2'b00,

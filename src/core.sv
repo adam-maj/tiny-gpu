@@ -5,6 +5,7 @@
 // > Handles processing 1 block at a time
 // > The core also has it's own scheduler to manage control flow
 // > Each core contains 1 fetcher & decoder, and register files, ALUs, LSUs, PC for each thread
+// > Supports branch divergence through active thread masking
 module core #(
     parameter DATA_MEM_ADDR_BITS = 8,
     parameter DATA_MEM_DATA_BITS = 8,
@@ -24,52 +25,56 @@ module core #(
     input wire [$clog2(THREADS_PER_BLOCK):0] thread_count,
 
     // Program Memory
-    output reg program_mem_read_valid,
-    output reg [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_read_address,
-    input reg program_mem_read_ready,
-    input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
+    output wire program_mem_read_valid,
+    output wire [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_read_address,
+    input program_mem_read_ready,
+    input [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
 
     // Data Memory
-    output reg [THREADS_PER_BLOCK-1:0] data_mem_read_valid,
-    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_BLOCK-1:0],
-    input reg [THREADS_PER_BLOCK-1:0] data_mem_read_ready,
-    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_BLOCK-1:0],
-    output reg [THREADS_PER_BLOCK-1:0] data_mem_write_valid,
-    output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_BLOCK-1:0],
-    output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_BLOCK-1:0],
-    input reg [THREADS_PER_BLOCK-1:0] data_mem_write_ready
+    output wire [THREADS_PER_BLOCK-1:0] data_mem_read_valid,
+    output wire [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_BLOCK-1:0],
+    input [THREADS_PER_BLOCK-1:0] data_mem_read_ready,
+    input [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_BLOCK-1:0],
+    output wire [THREADS_PER_BLOCK-1:0] data_mem_write_valid,
+    output wire [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_BLOCK-1:0],
+    output wire [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_BLOCK-1:0],
+    input [THREADS_PER_BLOCK-1:0] data_mem_write_ready
 );
     // State
-    reg [2:0] core_state;
-    reg [2:0] fetcher_state;
-    reg [15:0] instruction;
+    wire [2:0] core_state;
+    wire [2:0] fetcher_state;
+    wire [15:0] instruction;
 
     // Intermediate Signals
-    reg [7:0] current_pc;
+    wire [7:0] current_pc;
     wire [7:0] next_pc[THREADS_PER_BLOCK-1:0];
-    reg [7:0] rs[THREADS_PER_BLOCK-1:0];
-    reg [7:0] rt[THREADS_PER_BLOCK-1:0];
-    reg [1:0] lsu_state[THREADS_PER_BLOCK-1:0];
-    reg [7:0] lsu_out[THREADS_PER_BLOCK-1:0];
+    wire [7:0] rs[THREADS_PER_BLOCK-1:0];
+    wire [7:0] rt[THREADS_PER_BLOCK-1:0];
+    wire [1:0] lsu_state[THREADS_PER_BLOCK-1:0];
+    wire [7:0] lsu_out[THREADS_PER_BLOCK-1:0];
     wire [7:0] alu_out[THREADS_PER_BLOCK-1:0];
     
+    // Branch divergence support
+    wire [THREADS_PER_BLOCK-1:0] branch_taken;
+    wire [THREADS_PER_BLOCK-1:0] active_mask;
+
     // Decoded Instruction Signals
-    reg [3:0] decoded_rd_address;
-    reg [3:0] decoded_rs_address;
-    reg [3:0] decoded_rt_address;
-    reg [2:0] decoded_nzp;
-    reg [7:0] decoded_immediate;
+    wire [3:0] decoded_rd_address;
+    wire [3:0] decoded_rs_address;
+    wire [3:0] decoded_rt_address;
+    wire [2:0] decoded_nzp;
+    wire [7:0] decoded_immediate;
 
     // Decoded Control Signals
-    reg decoded_reg_write_enable;           // Enable writing to a register
-    reg decoded_mem_read_enable;            // Enable reading from memory
-    reg decoded_mem_write_enable;           // Enable writing to memory
-    reg decoded_nzp_write_enable;           // Enable writing to NZP register
-    reg [1:0] decoded_reg_input_mux;        // Select input to register
-    reg [1:0] decoded_alu_arithmetic_mux;   // Select arithmetic operation
-    reg decoded_alu_output_mux;             // Select operation in ALU
-    reg decoded_pc_mux;                     // Select source of next PC
-    reg decoded_ret;
+    wire decoded_reg_write_enable;           // Enable writing to a register
+    wire decoded_mem_read_enable;            // Enable reading from memory
+    wire decoded_mem_write_enable;           // Enable writing to memory
+    wire decoded_nzp_write_enable;           // Enable writing to NZP register
+    wire [1:0] decoded_reg_input_mux;        // Select input to register
+    wire [1:0] decoded_alu_arithmetic_mux;   // Select arithmetic operation
+    wire decoded_alu_output_mux;             // Select operation in ALU
+    wire decoded_pc_mux;                     // Select source of next PC
+    wire decoded_ret;
 
     // Fetcher
     fetcher #(
@@ -110,21 +115,26 @@ module core #(
         .decoded_ret(decoded_ret)
     );
 
-    // Scheduler
+    // Scheduler with branch divergence support
     scheduler #(
-        .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
+        .THREADS_PER_BLOCK(THREADS_PER_BLOCK)
     ) scheduler_instance (
         .clk(clk),
         .reset(reset),
         .start(start),
+        .thread_count(thread_count),
         .fetcher_state(fetcher_state),
         .core_state(core_state),
         .decoded_mem_read_enable(decoded_mem_read_enable),
         .decoded_mem_write_enable(decoded_mem_write_enable),
         .decoded_ret(decoded_ret),
+        .decoded_pc_mux(decoded_pc_mux),
+        .decoded_immediate(decoded_immediate),
         .lsu_state(lsu_state),
+        .branch_taken(branch_taken),
         .current_pc(current_pc),
         .next_pc(next_pc),
+        .active_mask(active_mask),
         .done(done)
     );
 
@@ -132,11 +142,14 @@ module core #(
     genvar i;
     generate
         for (i = 0; i < THREADS_PER_BLOCK; i = i + 1) begin : threads
+            // Thread is active if: enabled by thread_count AND in active_mask (for divergence)
+            wire thread_active = (i < thread_count) && active_mask[i];
+            
             // ALU
             alu alu_instance (
                 .clk(clk),
                 .reset(reset),
-                .enable(i < thread_count),
+                .enable(thread_active),
                 .core_state(core_state),
                 .decoded_alu_arithmetic_mux(decoded_alu_arithmetic_mux),
                 .decoded_alu_output_mux(decoded_alu_output_mux),
@@ -145,11 +158,11 @@ module core #(
                 .alu_out(alu_out[i])
             );
 
-            // LSU
+            // LSU with Cache
             lsu lsu_instance (
                 .clk(clk),
                 .reset(reset),
-                .enable(i < thread_count),
+                .enable(thread_active),
                 .core_state(core_state),
                 .decoded_mem_read_enable(decoded_mem_read_enable),
                 .decoded_mem_write_enable(decoded_mem_write_enable),
@@ -167,18 +180,19 @@ module core #(
                 .lsu_out(lsu_out[i])
             );
 
-            // Register File
+            // Register File - always enabled when thread is in block
+            // (needs to maintain state even when masked during divergence)
             registers #(
                 .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
                 .THREAD_ID(i),
-                .DATA_BITS(DATA_MEM_DATA_BITS),
+                .DATA_BITS(DATA_MEM_DATA_BITS)
             ) register_instance (
                 .clk(clk),
                 .reset(reset),
-                .enable(i < thread_count),
+                .enable(i < thread_count),  // Always enabled for thread_count
                 .block_id(block_id),
                 .core_state(core_state),
-                .decoded_reg_write_enable(decoded_reg_write_enable),
+                .decoded_reg_write_enable(decoded_reg_write_enable && active_mask[i]),
                 .decoded_reg_input_mux(decoded_reg_input_mux),
                 .decoded_rd_address(decoded_rd_address),
                 .decoded_rs_address(decoded_rs_address),
@@ -190,7 +204,7 @@ module core #(
                 .rt(rt[i])
             );
 
-            // Program Counter
+            // Program Counter with branch_taken output
             pc #(
                 .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS)
@@ -201,11 +215,12 @@ module core #(
                 .core_state(core_state),
                 .decoded_nzp(decoded_nzp),
                 .decoded_immediate(decoded_immediate),
-                .decoded_nzp_write_enable(decoded_nzp_write_enable),
+                .decoded_nzp_write_enable(decoded_nzp_write_enable && active_mask[i]),
                 .decoded_pc_mux(decoded_pc_mux),
                 .alu_out(alu_out[i]),
                 .current_pc(current_pc),
-                .next_pc(next_pc[i])
+                .next_pc(next_pc[i]),
+                .branch_taken(branch_taken[i])
             );
         end
     endgenerate
