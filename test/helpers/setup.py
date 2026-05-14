@@ -13,7 +13,7 @@ async def setup(
     threads: int
 ):
     # Setup Clock
-    clock = Clock(dut.clk, 25, units="us")
+    clock = Clock(dut.clk, 25, unit="us")
     cocotb.start_soon(clock.start())
 
     # Reset

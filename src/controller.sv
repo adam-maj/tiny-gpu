@@ -64,14 +64,18 @@ module controller #(
 
             channel_serving_consumer = 0;
         end else begin 
+            // Local variable to handle arbitration updates within the same cycle
+            reg [NUM_CONSUMERS-1:0] next_channel_serving_consumer;
+            next_channel_serving_consumer = channel_serving_consumer;
+
             // For each channel, we handle processing concurrently
             for (int i = 0; i < NUM_CHANNELS; i = i + 1) begin 
                 case (controller_state[i])
                     IDLE: begin
                         // While this channel is idle, cycle through consumers looking for one with a pending request
                         for (int j = 0; j < NUM_CONSUMERS; j = j + 1) begin 
-                            if (consumer_read_valid[j] && !channel_serving_consumer[j]) begin 
-                                channel_serving_consumer[j] = 1;
+                            if (consumer_read_valid[j] && !next_channel_serving_consumer[j]) begin 
+                                next_channel_serving_consumer[j] = 1;
                                 current_consumer[i] <= j;
 
                                 mem_read_valid[i] <= 1;
@@ -80,8 +84,8 @@ module controller #(
 
                                 // Once we find a pending request, pick it up with this channel and stop looking for requests
                                 break;
-                            end else if (consumer_write_valid[j] && !channel_serving_consumer[j]) begin 
-                                channel_serving_consumer[j] = 1;
+                            end else if (consumer_write_valid[j] && !next_channel_serving_consumer[j]) begin 
+                                next_channel_serving_consumer[j] = 1;
                                 current_consumer[i] <= j;
 
                                 mem_write_valid[i] <= 1;
@@ -114,20 +118,23 @@ module controller #(
                     // Wait until consumer acknowledges it received response, then reset
                     READ_RELAYING: begin
                         if (!consumer_read_valid[current_consumer[i]]) begin 
-                            channel_serving_consumer[current_consumer[i]] = 0;
+                            next_channel_serving_consumer[current_consumer[i]] = 0;
                             consumer_read_ready[current_consumer[i]] <= 0;
                             controller_state[i] <= IDLE;
                         end
                     end
                     WRITE_RELAYING: begin 
                         if (!consumer_write_valid[current_consumer[i]]) begin 
-                            channel_serving_consumer[current_consumer[i]] = 0;
+                            next_channel_serving_consumer[current_consumer[i]] = 0;
                             consumer_write_ready[current_consumer[i]] <= 0;
                             controller_state[i] <= IDLE;
                         end
                     end
                 endcase
             end
+            
+            // Update the state register
+            channel_serving_consumer <= next_channel_serving_consumer;
         end
     end
 endmodule

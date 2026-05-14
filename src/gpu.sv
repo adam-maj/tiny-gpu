@@ -130,7 +130,7 @@ module gpu #(
         .mem_read_valid(program_mem_read_valid),
         .mem_read_address(program_mem_read_address),
         .mem_read_ready(program_mem_read_ready),
-        .mem_read_data(program_mem_read_data),
+        .mem_read_data(program_mem_read_data)
     );
 
     // Dispatcher
@@ -156,13 +156,13 @@ module gpu #(
         for (i = 0; i < NUM_CORES; i = i + 1) begin : cores
             // EDA: We create separate signals here to pass to cores because of a requirement
             // by the OpenLane EDA flow (uses Verilog 2005) that prevents slicing the top-level signals
-            reg [THREADS_PER_BLOCK-1:0] core_lsu_read_valid;
-            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_read_address [THREADS_PER_BLOCK-1:0];
+            wire [THREADS_PER_BLOCK-1:0] core_lsu_read_valid;
+            wire [DATA_MEM_ADDR_BITS-1:0] core_lsu_read_address [THREADS_PER_BLOCK-1:0];
             reg [THREADS_PER_BLOCK-1:0] core_lsu_read_ready;
             reg [DATA_MEM_DATA_BITS-1:0] core_lsu_read_data [THREADS_PER_BLOCK-1:0];
-            reg [THREADS_PER_BLOCK-1:0] core_lsu_write_valid;
-            reg [DATA_MEM_ADDR_BITS-1:0] core_lsu_write_address [THREADS_PER_BLOCK-1:0];
-            reg [DATA_MEM_DATA_BITS-1:0] core_lsu_write_data [THREADS_PER_BLOCK-1:0];
+            wire [THREADS_PER_BLOCK-1:0] core_lsu_write_valid;
+            wire [DATA_MEM_ADDR_BITS-1:0] core_lsu_write_address [THREADS_PER_BLOCK-1:0];
+            wire [DATA_MEM_DATA_BITS-1:0] core_lsu_write_data [THREADS_PER_BLOCK-1:0];
             reg [THREADS_PER_BLOCK-1:0] core_lsu_write_ready;
 
             // Pass through signals between LSUs and data memory controller
@@ -189,7 +189,7 @@ module gpu #(
                 .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
                 .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS),
-                .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
+                .THREADS_PER_BLOCK(THREADS_PER_BLOCK)
             ) core_instance (
                 .clk(clk),
                 .reset(core_reset[i]),

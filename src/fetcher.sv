@@ -23,7 +23,7 @@ module fetcher #(
 
     // Fetcher Output
     output reg [2:0] fetcher_state,
-    output reg [PROGRAM_MEM_DATA_BITS-1:0] instruction,
+    output reg [PROGRAM_MEM_DATA_BITS-1:0] instruction
 );
     localparam IDLE = 3'b000, 
         FETCHING = 3'b001, 

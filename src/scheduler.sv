@@ -14,7 +14,7 @@
 // > Technically, different instructions can branch to different PCs, requiring "branch divergence." In
 //   this minimal implementation, we assume no branch divergence (naive approach for simplicity)
 module scheduler #(
-    parameter THREADS_PER_BLOCK = 4,
+    parameter THREADS_PER_BLOCK = 4
 ) (
     input wire clk,
     input wire reset,
@@ -76,7 +76,9 @@ module scheduler #(
                 end
                 WAIT: begin
                     // Wait for all LSUs to finish their request before continuing
-                    reg any_lsu_waiting = 1'b0;
+                    logic any_lsu_waiting;
+                    any_lsu_waiting = 1'b0;
+                    
                     for (int i = 0; i < THREADS_PER_BLOCK; i++) begin
                         // Make sure no lsu_state = REQUESTING or WAITING
                         if (lsu_state[i] == 2'b01 || lsu_state[i] == 2'b10) begin
@@ -101,7 +103,8 @@ module scheduler #(
                         core_state <= DONE;
                     end else begin 
                         // TODO: Branch divergence. For now assume all next_pc converge
-                        current_pc <= next_pc[THREADS_PER_BLOCK-1];
+                        // Use Thread 0's PC since it is guaranteed to be active if the block is active
+                        current_pc <= next_pc[0];
 
                         // Update is synchronous so we move on after one cycle
                         core_state <= FETCH;

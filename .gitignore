@@ -6,3 +6,9 @@ gds/**/*.gltf
 
 .DS_Store
 results.xml
+docs/*.md
+
+sv2v-Windows/
+sv2v-Windows.zip
+*.ps1
+*_out.txt

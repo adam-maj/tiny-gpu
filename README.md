@@ -1,8 +1,14 @@
-# tiny-gpu
+# Mini GPU Architecture
 
-A minimal GPU implementation in Verilog optimized for learning about how GPUs work from the ground up.
+A minimal GPU implementation in SystemVerilog designed for educational exploration of hardware-level parallelism and GPGPU architectures.
 
-Built with <15 files of fully documented Verilog, complete documentation on architecture & ISA, working matrix addition/multiplication kernels, and full support for kernel simulation & execution traces.
+[![SystemVerilog](https://img.shields.io/badge/SystemVerilog-007ACC?logo=verilog&logoColor=white)](https://en.wikipedia.org/wiki/SystemVerilog)
+[![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Cocotb](https://img.shields.io/badge/Cocotb-333333?logo=python&logoColor=white)](https://www.cocotb.org/)
+[![Icarus Verilog](https://img.shields.io/badge/Icarus_Verilog-005A9C?logo=linux&logoColor=white)](http://iverilog.icarus.com/)
+[![sv2v](https://img.shields.io/badge/sv2v-444444?logo=github&logoColor=white)](https://github.com/zachjs/sv2v)
+
+This repository contains a documented SystemVerilog implementation of a GPU, featuring an ISA, architecture specifications, and matrix operation kernels supported by a simulation framework.
 
 ### Table of Contents
 
@@ -24,35 +30,27 @@ Built with <15 files of fully documented Verilog, complete documentation on arch
 
 # Overview
 
-If you want to learn how a CPU works all the way from architecture to control signals, there are many resources online to help you.
+Understanding the internal architecture of modern Graphics Processing Units (GPUs) is often hindered by the proprietary nature of commercial hardware. While high-level GPU programming resources are abundant, low-level hardware implementation details are scarce. 
 
-GPUs are not the same.
+`mini-gpu` provides a minimal, documented GPU implementation designed to bridge this gap, focusing on architectural fundamentals rather than production complexity.
 
-Because the GPU market is so competitive, low-level technical details for all modern architectures remain proprietary.
-
-While there are lots of resources to learn about GPU programming, there's almost nothing available to learn about how GPU's work at a hardware level.
-
-The best option is to go through open-source GPU implementations like [Miaow](https://github.com/VerticalResearchGroup/miaow) and [VeriGPU](https://github.com/hughperkins/VeriGPU/tree/main) and try to figure out what's going on. This is challenging since these projects aim at being feature complete and functional, so they're quite complex.
-
-This is why I built `tiny-gpu`!
-
-## What is tiny-gpu?
+## Project Scope
 
 > [!IMPORTANT]
 >
-> **tiny-gpu** is a minimal GPU implementation optimized for learning about how GPUs work from the ground up.
+> **mini-gpu** is a minimal GPU implementation optimized for learning about how GPUs work from the ground up.
 >
-> Specifically, with the trend toward general-purpose GPUs (GPGPUs) and ML-accelerators like Google's TPU, tiny-gpu focuses on highlighting the general principles of all of these architectures, rather than on the details of graphics-specific hardware.
+> Specifically, with the trend toward general-purpose GPUs (GPGPUs) and ML-accelerators like Google's TPU, mini-gpu focuses on highlighting the general principles of all of these architectures, rather than on the details of graphics-specific hardware.
 
 With this motivation in mind, we can simplify GPUs by cutting out the majority of complexity involved with building a production-grade graphics card, and focus on the core elements that are critical to all of these modern hardware accelerators.
 
 This project is primarily focused on exploring:
 
-1. **Architecture** - What does the architecture of a GPU look like? What are the most important elements?
-2. **Parallelization** - How is the SIMD progamming model implemented in hardware?
-3. **Memory** - How does a GPU work around the constraints of limited memory bandwidth?
+1. **Hardware Architecture**: Decomposition of GPU units, including dispatchers, compute cores, and memory controllers.
+2. **Parallel Execution Models**: Hardware implementation of the Single Instruction, Multiple Data (SIMD) paradigm.
+3. **Memory Hierarchy**: Managing memory bandwidth constraints through caching and controlled memory access.
 
-After understanding the fundamentals laid out in this project, you can checkout the [advanced functionality section](#advanced-functionality) to understand some of the most important optimizations made in production grade GPUs (that are more challenging to implement) which improve performance.
+Detailed discussions on advanced optimizations used in production-grade GPUs are available in the [Advanced Functionality](#advanced-functionality) section.
 
 # Architecture
 
@@ -63,7 +61,7 @@ After understanding the fundamentals laid out in this project, you can checkout 
 
 ## GPU
 
-tiny-gpu is built to execute a single kernel at a time.
+mini-gpu is built to execute a single kernel at a time.
 
 In order to launch a kernel, we need to do the following:
 
@@ -100,12 +98,12 @@ The GPU is built to interface with an external global memory. Here, data memory 
 
 ### Global Memory
 
-tiny-gpu data memory has the following specifications:
+mini-gpu data memory has the following specifications:
 
 - 8 bit addressability (256 total rows of data memory)
 - 8 bit data (stores values of <256 for each row)
 
-tiny-gpu program memory has the following specifications:
+mini-gpu program memory has the following specifications:
 
 - 8 bit addressability (256 rows of program memory)
 - 16 bit data (each instruction is 16 bits as specified by the ISA)
@@ -134,7 +132,7 @@ In this simplified GPU, each core processed one **block** at a time, and for eac
 
 Each core has a single scheduler that manages the execution of threads.
 
-The tiny-gpu scheduler executes instructions for a single block to completion before picking up a new block, and it executes instructions for all threads in-sync and sequentially.
+The mini-gpu scheduler executes instructions for a single block to completion before picking up a new block, and it executes instructions for all threads in-sync and sequentially.
 
 In more advanced schedulers, techniques like **pipelining** are used to stream the execution of multiple instructions subsequent instructions to maximize resource utilization before previous instructions are fully complete. Additionally, **warp scheduling** can be use to execute multiple batches of threads within a block in parallel.
 
@@ -174,7 +172,7 @@ By default, the PC increments by 1 after every instruction.
 
 With the `BRnzp` instruction, the NZP register checks to see if the NZP register (set by a previous `CMP` instruction) matches some case - and if it does, it will branch to a specific line of program memory. _This is how loops and conditionals are implemented._
 
-Since threads are processed in parallel, tiny-gpu assumes that all threads "converge" to the same program counter after each instruction - which is a naive assumption for the sake of simplicity.
+Since threads are processed in parallel, mini-gpu assumes that all threads "converge" to the same program counter after each instruction - which is a naive assumption for the sake of simplicity.
 
 In real GPUs, individual threads can branch to different PCs, causing **branch divergence** where a group of threads threads initially being processed together has to split out into separate execution.
 
@@ -182,7 +180,7 @@ In real GPUs, individual threads can branch to different PCs, causing **branch d
 
 ![ISA](/docs/images/isa.png)
 
-tiny-gpu implements a simple 11 instruction ISA built to enable simple kernels for proof-of-concept like matrix addition & matrix multiplication (implementation further down on this page).
+mini-gpu implements a simple 11 instruction ISA built to enable simple kernels for proof-of-concept like matrix addition & matrix multiplication (implementation further down on this page).
 
 For these purposes, it supports the following instructions:
 
@@ -261,7 +259,7 @@ RET                            ; end of kernel
 
 ### Matrix Multiplication
 
-The matrix multiplication kernel multiplies two 2x2 matrices. It performs element wise calculation of the dot product of the relevant row and column and uses the `CMP` and `BRnzp` instructions to demonstrate branching within the threads (notably, all branches converge so this kernel works on the current tiny-gpu implementation).
+The matrix multiplication kernel multiplies two 2x2 matrices. It performs element wise calculation of the dot product of the relevant row and column and uses the `CMP` and `BRnzp` instructions to demonstrate branching within the threads (notably, all branches converge so this kernel works on the current mini-gpu implementation).
 
 `matmul.asm`
 
@@ -311,33 +309,54 @@ STR R9, R8                     ; store C[i] in global memory
 RET                            ; end of kernel
 ```
 
-# Simulation
+# Simulation and Verification
 
-tiny-gpu is setup to simulate the execution of both of the above kernels. Before simulating, you'll need to install [iverilog](https://steveicarus.github.io/iverilog/usage/installation.html) and [cocotb](https://docs.cocotb.org/en/stable/install.html):
+`mini-gpu` includes a comprehensive simulation environment for verifying kernel execution.
 
-- Install Verilog compilers with `brew install icarus-verilog` and `pip3 install cocotb`
-- Download the latest version of sv2v from https://github.com/zachjs/sv2v/releases, unzip it and put the binary in $PATH.
-- Run `mkdir build` in the root directory of this repository.
+## Prerequisites
 
-Once you've installed the pre-requisites, you can run the kernel simulations with `make test_matadd` and `make test_matmul`.
+The following tools are required for simulation:
 
-Executing the simulations will output a log file in `test/logs` with the initial data memory state, complete execution trace of the kernel, and final data memory state.
+- **Icarus Verilog**: Hardware simulation and synthesis tool.
+- **Python 3.x**: Required for the `cocotb` verification framework.
+- **cocotb**: Coroutine-based cosimulation framework.
+- **sv2v**: SystemVerilog to Verilog conversion tool.
 
-If you look at the initial data memory state logged at the start of the logfile for each, you should see the two start matrices for the calculation, and in the final data memory at the end of the file you should also see the resultant matrix.
+### Installation
 
-Below is a sample of the execution traces, showing on each cycle the execution of every thread within every core, including the current instruction, PC, register values, states, etc.
+1. Install the Verilog compiler and cocotb:
+   - macOS: `brew install icarus-verilog`
+   - Python: `pip install cocotb`
+2. Download the `sv2v` binary from the [official releases](https://github.com/zachjs/sv2v/releases) and ensure it is in your system `PATH`.
+3. Create a build directory in the root: `mkdir build`.
+
+## Running Simulations
+
+Execute the pre-defined kernel simulations using the provided Makefile:
+
+```bash
+make test_matadd
+make test_matmul
+```
+
+Simulations generate comprehensive log files in `test/logs`, including:
+- Initial and final data memory states.
+- Cycle-accurate execution traces.
+- Register and PC status for every thread and core.
+
+### Execution Trace Analysis
+
+The generated traces provide visibility into the execution of every thread, facilitating detailed analysis of the pipeline and memory operations.
 
 ![execution trace](docs/images/trace.png)
 
-**For anyone trying to run the simulation or play with this repo, please feel free to DM me on [twitter](https://twitter.com/majmudaradam) if you run into any issues - I want you to get this running!**
-
 # Advanced Functionality
 
-For the sake of simplicity, there were many additional features implemented in modern GPUs that heavily improve performance & functionality that tiny-gpu omits. We'll discuss some of those most critical features in this section.
+For the sake of simplicity, there were many additional features implemented in modern GPUs that heavily improve performance & functionality that mini-gpu omits. We'll discuss some of those most critical features in this section.
 
 ### Multi-layered Cache & Shared Memory
 
-In modern GPUs, multiple different levels of caches are used to minimize the amount of data that needs to get accessed from global memory. tiny-gpu implements only one cache layer between individual compute units requesting memory and the memory controllers which stores recent cached data.
+In modern GPUs, multiple different levels of caches are used to minimize the amount of data that needs to get accessed from global memory. mini-gpu implements only one cache layer between individual compute units requesting memory and the memory controllers which stores recent cached data.
 
 Implementing multi-layered caches allows frequently accessed data to be cached more locally to where it's being used (with some caches within individual compute cores), minimizing load times for this data.
 
@@ -353,7 +372,7 @@ Memory coalescing is used to analyzing queued memory requests and combine neighb
 
 ### Pipelining
 
-In the control flow for tiny-gpu, cores wait for one instruction to be executed on a group of threads before starting execution of the next instruction.
+In the control flow for mini-gpu, cores wait for one instruction to be executed on a group of threads before starting execution of the next instruction.
 
 Modern GPUs use **pipelining** to stream execution of multiple sequential instructions at once while ensuring that instructions with dependencies on each other still get executed sequentially.
 
@@ -367,7 +386,7 @@ Multiple warps can be executed on a single core simultaneously by executing inst
 
 ### Branch Divergence
 
-tiny-gpu assumes that all threads in a single batch end up on the same PC after each instruction, meaning that threads can be executed in parallel for their entire lifetime.
+mini-gpu assumes that all threads in a single batch end up on the same PC after each instruction, meaning that threads can be executed in parallel for their entire lifetime.
 
 In reality, individual threads could diverge from each other and branch to different lines based on their data. With different PCs, these threads would need to split into separate lines of execution, which requires managing diverging threads & paying attention to when threads converge again.
 
@@ -377,16 +396,22 @@ Another core functionality of modern GPUs is the ability to set **barriers** so 
 
 This is useful for cases where threads need to exchange shared data with each other so they can ensure that the data has been fully processed.
 
-# Next Steps
+# Roadmap and Future Work
 
-Updates I want to make in the future to improve the design, anyone else is welcome to contribute as well:
+Current development objectives include:
 
-- [ ] Add a simple cache for instructions
-- [ ] Build an adapter to use GPU with Tiny Tapeout 7
-- [ ] Add basic branch divergence
-- [ ] Add basic memory coalescing
-- [ ] Add basic pipelining
-- [ ] Optimize control flow and use of registers to improve cycle time
-- [ ] Write a basic graphics kernel or add simple graphics hardware to demonstrate graphics functionality
+- [ ] Instruction cache implementation.
+- [ ] Integration with Tiny Tapeout 7.
+- [ ] Support for branch divergence management.
+- [ ] Implementation of memory coalescing.
+- [ ] Pipeline optimization.
+- [ ] Control flow and register allocation enhancements.
+- [ ] Graphics-specific hardware modules and kernels.
 
-**For anyone curious to play around or make a contribution, feel free to put up a PR with any improvements you'd like to add 😄**
+## Contributions
+
+Contributions aimed at improving the architectural fidelity or performance of `mini-gpu` are welcome. Please submit a Pull Request or open an issue to discuss proposed changes.
+
+---
+
+**Author:** [Rickarya Das](https://github.com/ridash2005)
