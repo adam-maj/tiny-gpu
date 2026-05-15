@@ -381,7 +381,7 @@ This is useful for cases where threads need to exchange shared data with each ot
 
 Updates I want to make in the future to improve the design, anyone else is welcome to contribute as well:
 
-- [ ] Add a simple cache for instructions
+- [x] Add a simple cache for instructions
 - [ ] Build an adapter to use GPU with Tiny Tapeout 7
 - [ ] Add basic branch divergence
 - [ ] Add basic memory coalescing
