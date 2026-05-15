@@ -28,6 +28,11 @@ module fetcher #(
     localparam IDLE = 3'b000, 
         FETCHING = 3'b001, 
         FETCHED = 3'b010;
+        
+    // Simple Instruction Cache
+    reg [PROGRAM_MEM_DATA_BITS-1:0] icache_data [0:(1<<PROGRAM_MEM_ADDR_BITS)-1];
+    reg [(1<<PROGRAM_MEM_ADDR_BITS)-1:0] icache_valid;
+    integer i;
     
     always @(posedge clk) begin
         if (reset) begin
@@ -35,14 +40,26 @@ module fetcher #(
             mem_read_valid <= 0;
             mem_read_address <= 0;
             instruction <= {PROGRAM_MEM_DATA_BITS{1'b0}};
+            icache_valid <= 0;
+            for (i = 0; i < (1<<PROGRAM_MEM_ADDR_BITS); i = i + 1) begin
+                icache_data[i] <= 0;
+            end
         end else begin
             case (fetcher_state)
                 IDLE: begin
                     // Start fetching when core_state = FETCH
                     if (core_state == 3'b001) begin
-                        fetcher_state <= FETCHING;
-                        mem_read_valid <= 1;
-                        mem_read_address <= current_pc;
+                        if (icache_valid[current_pc]) begin
+                            // Cache Hit
+                            fetcher_state <= FETCHED;
+                            instruction <= icache_data[current_pc];
+                            mem_read_valid <= 0;
+                        end else begin
+                            // Cache Miss
+                            fetcher_state <= FETCHING;
+                            mem_read_valid <= 1;
+                            mem_read_address <= current_pc;
+                        end
                     end
                 end
                 FETCHING: begin
@@ -51,6 +68,10 @@ module fetcher #(
                         fetcher_state <= FETCHED;
                         instruction <= mem_read_data; // Store the instruction when received
                         mem_read_valid <= 0;
+                        
+                        // Update cache
+                        icache_valid[mem_read_address] <= 1;
+                        icache_data[mem_read_address] <= mem_read_data;
                     end
                 end
                 FETCHED: begin
