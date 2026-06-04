@@ -1,25 +1,66 @@
-.PHONY: test compile
+# ============================================================
+# Tiny GPU Build System
+# ============================================================
 
-export LIBPYTHON_LOC=$(shell cocotb-config --libpython)
+.PHONY: help
+help:
+	@echo ""
+	@echo "Tiny GPU Build Targets"
+	@echo "======================"
+	@echo ""
+	@echo "make test           Run all regressions"
+	@echo "make test-core      Run core regressions"
+	@echo "make test-gpu       Run GPU regressions"
+	@echo "make asm            Assemble all example programs"
+	@echo "make clean          Remove build artifacts"
+	@echo ""
 
-test_%:
-	make compile
-	iverilog -o build/sim.vvp -s gpu -g2012 build/gpu.v
-	MODULE=test.test_$* vvp -M $$(cocotb-config --prefix)/cocotb/libs -m libcocotbvpi_icarus build/sim.vvp
+# ============================================================
+# Assembly Programs
+# ============================================================
 
-compile:
-	make compile_alu
-	sv2v -I src/* -w build/gpu.v
-	echo "" >> build/gpu.v
-	cat build/alu.v >> build/gpu.v
-	echo '`timescale 1ns/1ns' > build/temp.v
-	cat build/gpu.v >> build/temp.v
-	mv build/temp.v build/gpu.v
+PROGRAMS = \
+	programs/add.asm \
+	programs/sub.asm \
+	programs/mul.asm \
+	programs/div.asm \
+	programs/branch.asm \
+	programs/load.asm \
+	programs/store.asm
 
-compile_%:
-	sv2v -w build/$*.v src/$*.sv
+.PHONY: asm
+asm:
+	@echo "Assembling programs..."
+	@for p in $(PROGRAMS); do \
+		echo ""; \
+		echo "$$p"; \
+		python3 tools/assembler.py $$p; \
+	done
 
-# TODO: Get gtkwave visualizaiton
+# ============================================================
+# Verification
+# ============================================================
 
-show_%: %.vcd %.gtkw
-	gtkwave $^
+.PHONY: test
+test: test-core test-gpu
+
+.PHONY: test-core
+test-core:
+	pytest -s tb/run_core_programs.py
+
+.PHONY: test-gpu
+test-gpu:
+	pytest -s tb/run_gpu_top.py
+
+# ============================================================
+# Cleanup
+# ============================================================
+
+.PHONY: clean
+clean:
+	rm -rf sim_build
+	rm -rf build
+	rm -rf .pytest_cache
+	find . -name "__pycache__" -type d -exec rm -rf {} +
+	find . -name "*.fst" -delete
+	find . -name "*.vcd" -delete

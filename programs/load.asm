@@ -1,0 +1,3 @@
+CONST R1,10
+LDR R0,[R1]
+RET
