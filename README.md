@@ -118,11 +118,13 @@ The memory controllers keep track of all the outgoing requests to memory from th
 
 Each memory controller has a fixed number of channels based on the bandwidth of global memory.
 
-### Cache (WIP)
+### Cache
 
 The same data is often requested from global memory by multiple cores. Constantly access global memory repeatedly is expensive, and since the data has already been fetched once, it would be more efficient to store it on device in SRAM to be retrieved much quicker on later requests.
 
 This is exactly what the cache is used for. Data retrieved from external memory is stored in cache and can be retrieved from there on later requests, freeing up memory bandwidth to be used for new data.
+
+tiny-gpu implements a two-level cache hierarchy (see [Multi-layered Cache & Shared Memory](#multi-layered-cache--shared-memory) below): a small private L1 in front of each core, and a larger L2 shared by every core, sitting in front of the external memory controller.
 
 ## Core
 
@@ -191,6 +193,8 @@ For these purposes, it supports the following instructions:
 - `ADD`, `SUB`, `MUL`, `DIV` - Basic arithmetic operations to enable tensor math.
 - `LDR` - Load data from global memory.
 - `STR` - Store data into global memory.
+- `LDS` - Load data from the core-local shared memory scratchpad.
+- `STS` - Store data into the core-local shared memory scratchpad.
 - `CONST` - Load a constant value into a register.
 - `RET` - Signal that the current thread has reached the end of execution.
 
@@ -319,7 +323,7 @@ tiny-gpu is setup to simulate the execution of both of the above kernels. Before
 - Download the latest version of sv2v from https://github.com/zachjs/sv2v/releases, unzip it and put the binary in $PATH.
 - Run `mkdir build` in the root directory of this repository.
 
-Once you've installed the pre-requisites, you can run the kernel simulations with `make test_matadd` and `make test_matmul`.
+Once you've installed the pre-requisites, you can run the kernel simulations with `make test_matadd` and `make test_matmul`, as well as `make test_shared_memory` and `make test_cache` (which exercise the shared memory scratchpad and the L1/L2 cache hierarchy respectively - see [Multi-layered Cache & Shared Memory](#multi-layered-cache--shared-memory)).
 
 Executing the simulations will output a log file in `test/logs` with the initial data memory state, complete execution trace of the kernel, and final data memory state.
 
@@ -337,13 +341,25 @@ For the sake of simplicity, there were many additional features implemented in m
 
 ### Multi-layered Cache & Shared Memory
 
-In modern GPUs, multiple different levels of caches are used to minimize the amount of data that needs to get accessed from global memory. tiny-gpu implements only one cache layer between individual compute units requesting memory and the memory controllers which stores recent cached data.
+In modern GPUs, multiple different levels of caches are used to minimize the amount of data that needs to get accessed from global memory.
 
-Implementing multi-layered caches allows frequently accessed data to be cached more locally to where it's being used (with some caches within individual compute cores), minimizing load times for this data.
+tiny-gpu implements a two-level, set-associative cache hierarchy in [`src/cache.sv`](src/cache.sv):
 
-Different caching algorithms are used to maximize cache-hits - this is a critical dimension that can be improved on to optimize memory access.
+- **L1** - one private instance per core, sitting between that core's LSUs and L2. Small (4 sets x 2 ways x 4-word lines by default) and cheap to flush, so it's simply reset (along with the rest of the core's state) every time the core is handed a new block - this avoids needing a cross-core cache-coherence protocol entirely, since a block never sees another core's writes through its own stale L1 contents.
+- **L2** - a single instance shared by every core, sitting between the L1s and the external memory controller. Larger (8 sets x 2 ways x 4-word lines by default) and persists for the whole kernel, so it's what actually captures reuse *across* cores and blocks (e.g. multiple blocks reading overlapping rows of the same input matrix).
 
-Additionally, GPUs often use **shared memory** for threads within the same block to access a single memory space that can be used to share results with other threads.
+Both levels use the same generic, parameterized `cache` module:
+
+- **Set-associative with line fills** - a miss triggers a sequential fill of the whole cache line (not just the requested word), so spatial locality (neighboring threads reading neighboring addresses) turns into free hits after the first miss.
+- **Non-blocking** - each cache instance tracks multiple outstanding misses in parallel (configurable via `NUM_CHANNELS`), so one thread's miss doesn't stall a hit for another thread. Two requests that map to the *same set* are still serialized against each other (to avoid racing on the same line/replacement state), but requests to different sets proceed independently.
+- **Write-through, no-write-allocate, write-update-on-hit** - stores are always forwarded downstream immediately (so memory below is never stale), and also patch the line in place if it's already cached. This sidesteps the need for a dirty-bit writeback protocol.
+- **Pseudo-LRU replacement** - each way in a set has an age counter; the oldest way is evicted on a miss.
+
+Additionally, GPUs often use **shared memory** for threads within the same block to access a single memory space that can be used to share results with other threads. tiny-gpu implements this in [`src/shared_memory.sv`](src/shared_memory.sv): a small on-chip scratchpad local to each core, addressable via the new `LDS`/`STS` instructions. Unlike global memory, shared memory never touches the cache hierarchy or external memory controller - reads and writes only ever leave the core they're issued from. Because tiny-gpu's scheduler already executes every thread in a block in lockstep, the natural "all threads finish instruction N before any thread starts instruction N+1" ordering acts as an implicit barrier: a thread reading another thread's shared-memory write is always guaranteed to see it, with no explicit synchronization instruction needed (see [`test/test_shared_memory.py`](test/test_shared_memory.py) for a worked example). Shared memory contents are not preserved across blocks, matching real GPUs.
+
+Different caching algorithms are used to maximize cache-hits - this is a critical dimension that can be improved on to optimize memory access. In particular, this implementation intentionally keeps L1 non-coherent across cores (relying on the per-block flush) rather than implementing cross-core snooping/invalidation, which is the main way it diverges from a production cache hierarchy.
+
+See [`test/test_cache.py`](test/test_cache.py) for a kernel that exercises repeated reads to the same address and asserts on the resulting L1 hit/miss counts.
 
 ### Memory Coalescing
 
@@ -381,6 +397,7 @@ This is useful for cases where threads need to exchange shared data with each ot
 
 Updates I want to make in the future to improve the design, anyone else is welcome to contribute as well:
 
+- [x] Add a multi-layered (L1 + L2) data cache and per-block shared memory (see [Multi-layered Cache & Shared Memory](#multi-layered-cache--shared-memory))
 - [ ] Add a simple cache for instructions
 - [ ] Build an adapter to use GPU with Tiny Tapeout 7
 - [ ] Add basic branch divergence

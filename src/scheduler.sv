@@ -28,6 +28,7 @@ module scheduler #(
     // Memory Access State
     input reg [2:0] fetcher_state,
     input reg [1:0] lsu_state [THREADS_PER_BLOCK-1:0],
+    input reg [1:0] slsu_state [THREADS_PER_BLOCK-1:0],
 
     // Current & Next PC
     output reg [7:0] current_pc,
@@ -80,6 +81,11 @@ module scheduler #(
                     for (int i = 0; i < THREADS_PER_BLOCK; i++) begin
                         // Make sure no lsu_state = REQUESTING or WAITING
                         if (lsu_state[i] == 2'b01 || lsu_state[i] == 2'b10) begin
+                            any_lsu_waiting = 1'b1;
+                            break;
+                        end
+                        // Make sure no slsu_state (shared memory LSU) = REQUESTING or WAITING
+                        if (slsu_state[i] == 2'b01 || slsu_state[i] == 2'b10) begin
                             any_lsu_waiting = 1'b1;
                             break;
                         end
