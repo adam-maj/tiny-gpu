@@ -10,7 +10,8 @@ module core #(
     parameter DATA_MEM_DATA_BITS = 8,
     parameter PROGRAM_MEM_ADDR_BITS = 8,
     parameter PROGRAM_MEM_DATA_BITS = 16,
-    parameter THREADS_PER_BLOCK = 4
+    parameter THREADS_PER_BLOCK = 4,
+    parameter SHARED_MEM_ADDR_BITS = 6
 ) (
     input wire clk,
     input wire reset,
@@ -51,8 +52,20 @@ module core #(
     reg [7:0] rt[THREADS_PER_BLOCK-1:0];
     reg [1:0] lsu_state[THREADS_PER_BLOCK-1:0];
     reg [7:0] lsu_out[THREADS_PER_BLOCK-1:0];
+    reg [1:0] slsu_state[THREADS_PER_BLOCK-1:0];
+    reg [7:0] slsu_out[THREADS_PER_BLOCK-1:0];
     wire [7:0] alu_out[THREADS_PER_BLOCK-1:0];
-    
+
+    // Shared Memory (per-block scratchpad, on-chip - never leaves the core)
+    reg [THREADS_PER_BLOCK-1:0] shared_mem_read_valid;
+    reg [SHARED_MEM_ADDR_BITS-1:0] shared_mem_read_address [THREADS_PER_BLOCK-1:0];
+    reg [THREADS_PER_BLOCK-1:0] shared_mem_read_ready;
+    reg [7:0] shared_mem_read_data [THREADS_PER_BLOCK-1:0];
+    reg [THREADS_PER_BLOCK-1:0] shared_mem_write_valid;
+    reg [SHARED_MEM_ADDR_BITS-1:0] shared_mem_write_address [THREADS_PER_BLOCK-1:0];
+    reg [7:0] shared_mem_write_data [THREADS_PER_BLOCK-1:0];
+    reg [THREADS_PER_BLOCK-1:0] shared_mem_write_ready;
+
     // Decoded Instruction Signals
     reg [3:0] decoded_rd_address;
     reg [3:0] decoded_rs_address;
@@ -64,6 +77,8 @@ module core #(
     reg decoded_reg_write_enable;           // Enable writing to a register
     reg decoded_mem_read_enable;            // Enable reading from memory
     reg decoded_mem_write_enable;           // Enable writing to memory
+    reg decoded_shared_mem_read_enable;     // Enable reading from shared memory
+    reg decoded_shared_mem_write_enable;    // Enable writing to shared memory
     reg decoded_nzp_write_enable;           // Enable writing to NZP register
     reg [1:0] decoded_reg_input_mux;        // Select input to register
     reg [1:0] decoded_alu_arithmetic_mux;   // Select arithmetic operation
@@ -102,6 +117,8 @@ module core #(
         .decoded_reg_write_enable(decoded_reg_write_enable),
         .decoded_mem_read_enable(decoded_mem_read_enable),
         .decoded_mem_write_enable(decoded_mem_write_enable),
+        .decoded_shared_mem_read_enable(decoded_shared_mem_read_enable),
+        .decoded_shared_mem_write_enable(decoded_shared_mem_write_enable),
         .decoded_nzp_write_enable(decoded_nzp_write_enable),
         .decoded_reg_input_mux(decoded_reg_input_mux),
         .decoded_alu_arithmetic_mux(decoded_alu_arithmetic_mux),
@@ -123,9 +140,28 @@ module core #(
         .decoded_mem_write_enable(decoded_mem_write_enable),
         .decoded_ret(decoded_ret),
         .lsu_state(lsu_state),
+        .slsu_state(slsu_state),
         .current_pc(current_pc),
         .next_pc(next_pc),
         .done(done)
+    );
+
+    // Shared Memory (per-block scratchpad, single instance shared by every thread in this core)
+    shared_memory #(
+        .DATA_BITS(DATA_MEM_DATA_BITS),
+        .ADDR_BITS(SHARED_MEM_ADDR_BITS),
+        .THREADS_PER_BLOCK(THREADS_PER_BLOCK)
+    ) shared_memory_instance (
+        .clk(clk),
+        .reset(reset),
+        .read_valid(shared_mem_read_valid),
+        .read_address(shared_mem_read_address),
+        .read_ready(shared_mem_read_ready),
+        .read_data(shared_mem_read_data),
+        .write_valid(shared_mem_write_valid),
+        .write_address(shared_mem_write_address),
+        .write_data(shared_mem_write_data),
+        .write_ready(shared_mem_write_ready)
     );
 
     // Dedicated ALU, LSU, registers, & PC unit for each thread this core has capacity for
@@ -167,6 +203,30 @@ module core #(
                 .lsu_out(lsu_out[i])
             );
 
+            // Shared LSU
+            shared_lsu #(
+                .ADDR_BITS(SHARED_MEM_ADDR_BITS)
+            ) shared_lsu_instance (
+                .clk(clk),
+                .reset(reset),
+                .enable(i < thread_count),
+                .core_state(core_state),
+                .decoded_shared_mem_read_enable(decoded_shared_mem_read_enable),
+                .decoded_shared_mem_write_enable(decoded_shared_mem_write_enable),
+                .rs(rs[i]),
+                .rt(rt[i]),
+                .mem_read_valid(shared_mem_read_valid[i]),
+                .mem_read_address(shared_mem_read_address[i]),
+                .mem_read_ready(shared_mem_read_ready[i]),
+                .mem_read_data(shared_mem_read_data[i]),
+                .mem_write_valid(shared_mem_write_valid[i]),
+                .mem_write_address(shared_mem_write_address[i]),
+                .mem_write_data(shared_mem_write_data[i]),
+                .mem_write_ready(shared_mem_write_ready[i]),
+                .lsu_state(slsu_state[i]),
+                .lsu_out(slsu_out[i])
+            );
+
             // Register File
             registers #(
                 .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
@@ -186,6 +246,7 @@ module core #(
                 .decoded_immediate(decoded_immediate),
                 .alu_out(alu_out[i]),
                 .lsu_out(lsu_out[i]),
+                .slsu_out(slsu_out[i]),
                 .rs(rs[i]),
                 .rt(rt[i])
             );

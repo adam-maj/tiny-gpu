@@ -15,7 +15,21 @@ module gpu #(
     parameter PROGRAM_MEM_DATA_BITS = 16,    // Number of bits in program memory value (16 bit instruction)
     parameter PROGRAM_MEM_NUM_CHANNELS = 1,  // Number of concurrent channels for sending requests to program memory
     parameter NUM_CORES = 2,                 // Number of cores to include in this GPU
-    parameter THREADS_PER_BLOCK = 4          // Number of threads to handle per block (determines the compute resources of each core)
+    parameter THREADS_PER_BLOCK = 4,         // Number of threads to handle per block (determines the compute resources of each core)
+
+    // Multi-layered cache: each core has a private L1 in front of a GPU-wide shared L2, which
+    // itself sits in front of the external-memory controller/channels above.
+    parameter L1_NUM_CHANNELS = 2,           // Concurrent outstanding misses each core's L1 can track
+    parameter L1_NUM_SETS = 4,               // L1 sets (per core)
+    parameter L1_WAYS = 2,                   // L1 associativity (per core)
+    parameter L1_LINE_SIZE = 4,              // L1 words per line (per core)
+    parameter L2_NUM_CHANNELS = DATA_MEM_NUM_CHANNELS, // Concurrent outstanding misses the shared L2 can track
+    parameter L2_NUM_SETS = 8,               // L2 sets (shared)
+    parameter L2_WAYS = 2,                   // L2 associativity (shared)
+    parameter L2_LINE_SIZE = 4,              // L2 words per line (shared)
+
+    // Shared memory: on-chip per-block scratchpad, local to each core
+    parameter SHARED_MEM_ADDR_BITS = 6
 ) (
     input wire clk,
     input wire reset,
@@ -42,7 +56,13 @@ module gpu #(
     output wire [DATA_MEM_NUM_CHANNELS-1:0] data_mem_write_valid,
     output wire [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [DATA_MEM_NUM_CHANNELS-1:0],
     output wire [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [DATA_MEM_NUM_CHANNELS-1:0],
-    input wire [DATA_MEM_NUM_CHANNELS-1:0] data_mem_write_ready
+    input wire [DATA_MEM_NUM_CHANNELS-1:0] data_mem_write_ready,
+
+    // Cache profiling / observability
+    output wire [31:0] l1_hit_count [NUM_CORES-1:0],
+    output wire [31:0] l1_miss_count [NUM_CORES-1:0],
+    output wire [31:0] l2_hit_count,
+    output wire [31:0] l2_miss_count
 );
     // Control
     wire [7:0] thread_count;
@@ -54,16 +74,26 @@ module gpu #(
     reg [7:0] core_block_id [NUM_CORES-1:0];
     reg [$clog2(THREADS_PER_BLOCK):0] core_thread_count [NUM_CORES-1:0];
 
-    // LSU <> Data Memory Controller Channels
-    localparam NUM_LSUS = NUM_CORES * THREADS_PER_BLOCK;
-    reg [NUM_LSUS-1:0] lsu_read_valid;
-    reg [DATA_MEM_ADDR_BITS-1:0] lsu_read_address [NUM_LSUS-1:0];
-    reg [NUM_LSUS-1:0] lsu_read_ready;
-    reg [DATA_MEM_DATA_BITS-1:0] lsu_read_data [NUM_LSUS-1:0];
-    reg [NUM_LSUS-1:0] lsu_write_valid;
-    reg [DATA_MEM_ADDR_BITS-1:0] lsu_write_address [NUM_LSUS-1:0];
-    reg [DATA_MEM_DATA_BITS-1:0] lsu_write_data [NUM_LSUS-1:0];
-    reg [NUM_LSUS-1:0] lsu_write_ready;
+    // L1 (per-core) <> L2 (shared) Cache Channels
+    localparam L1_TOTAL_CHANNELS = NUM_CORES * L1_NUM_CHANNELS;
+    reg [L1_TOTAL_CHANNELS-1:0] l1_mem_read_valid;
+    reg [DATA_MEM_ADDR_BITS-1:0] l1_mem_read_address [L1_TOTAL_CHANNELS-1:0];
+    reg [L1_TOTAL_CHANNELS-1:0] l1_mem_read_ready;
+    reg [DATA_MEM_DATA_BITS-1:0] l1_mem_read_data [L1_TOTAL_CHANNELS-1:0];
+    reg [L1_TOTAL_CHANNELS-1:0] l1_mem_write_valid;
+    reg [DATA_MEM_ADDR_BITS-1:0] l1_mem_write_address [L1_TOTAL_CHANNELS-1:0];
+    reg [DATA_MEM_DATA_BITS-1:0] l1_mem_write_data [L1_TOTAL_CHANNELS-1:0];
+    reg [L1_TOTAL_CHANNELS-1:0] l1_mem_write_ready;
+
+    // L2 (shared) Cache <> Data Memory Controller Channels
+    reg [L2_NUM_CHANNELS-1:0] l2_mem_read_valid;
+    reg [DATA_MEM_ADDR_BITS-1:0] l2_mem_read_address [L2_NUM_CHANNELS-1:0];
+    reg [L2_NUM_CHANNELS-1:0] l2_mem_read_ready;
+    reg [DATA_MEM_DATA_BITS-1:0] l2_mem_read_data [L2_NUM_CHANNELS-1:0];
+    reg [L2_NUM_CHANNELS-1:0] l2_mem_write_valid;
+    reg [DATA_MEM_ADDR_BITS-1:0] l2_mem_write_address [L2_NUM_CHANNELS-1:0];
+    reg [DATA_MEM_DATA_BITS-1:0] l2_mem_write_data [L2_NUM_CHANNELS-1:0];
+    reg [L2_NUM_CHANNELS-1:0] l2_mem_write_ready;
 
     // Fetcher <> Program Memory Controller Channels
     localparam NUM_FETCHERS = NUM_CORES;
@@ -82,24 +112,59 @@ module gpu #(
         .thread_count(thread_count)
     );
 
+    // Shared L2 Cache - sits between every core's private L1 and the memory controller
+    cache #(
+        .ADDR_BITS(DATA_MEM_ADDR_BITS),
+        .DATA_BITS(DATA_MEM_DATA_BITS),
+        .NUM_CONSUMERS(L1_TOTAL_CHANNELS),
+        .NUM_CHANNELS(L2_NUM_CHANNELS),
+        .NUM_SETS(L2_NUM_SETS),
+        .WAYS(L2_WAYS),
+        .LINE_SIZE(L2_LINE_SIZE)
+    ) l2_cache_instance (
+        .clk(clk),
+        .reset(reset),
+
+        .consumer_read_valid(l1_mem_read_valid),
+        .consumer_read_address(l1_mem_read_address),
+        .consumer_read_ready(l1_mem_read_ready),
+        .consumer_read_data(l1_mem_read_data),
+        .consumer_write_valid(l1_mem_write_valid),
+        .consumer_write_address(l1_mem_write_address),
+        .consumer_write_data(l1_mem_write_data),
+        .consumer_write_ready(l1_mem_write_ready),
+
+        .mem_read_valid(l2_mem_read_valid),
+        .mem_read_address(l2_mem_read_address),
+        .mem_read_ready(l2_mem_read_ready),
+        .mem_read_data(l2_mem_read_data),
+        .mem_write_valid(l2_mem_write_valid),
+        .mem_write_address(l2_mem_write_address),
+        .mem_write_data(l2_mem_write_data),
+        .mem_write_ready(l2_mem_write_ready),
+
+        .hit_count(l2_hit_count),
+        .miss_count(l2_miss_count)
+    );
+
     // Data Memory Controller
     controller #(
         .ADDR_BITS(DATA_MEM_ADDR_BITS),
         .DATA_BITS(DATA_MEM_DATA_BITS),
-        .NUM_CONSUMERS(NUM_LSUS),
+        .NUM_CONSUMERS(L2_NUM_CHANNELS),
         .NUM_CHANNELS(DATA_MEM_NUM_CHANNELS)
     ) data_memory_controller (
         .clk(clk),
         .reset(reset),
 
-        .consumer_read_valid(lsu_read_valid),
-        .consumer_read_address(lsu_read_address),
-        .consumer_read_ready(lsu_read_ready),
-        .consumer_read_data(lsu_read_data),
-        .consumer_write_valid(lsu_write_valid),
-        .consumer_write_address(lsu_write_address),
-        .consumer_write_data(lsu_write_data),
-        .consumer_write_ready(lsu_write_ready),
+        .consumer_read_valid(l2_mem_read_valid),
+        .consumer_read_address(l2_mem_read_address),
+        .consumer_read_ready(l2_mem_read_ready),
+        .consumer_read_data(l2_mem_read_data),
+        .consumer_write_valid(l2_mem_write_valid),
+        .consumer_write_address(l2_mem_write_address),
+        .consumer_write_data(l2_mem_write_data),
+        .consumer_write_ready(l2_mem_write_ready),
 
         .mem_read_valid(data_mem_read_valid),
         .mem_read_address(data_mem_read_address),
@@ -165,23 +230,74 @@ module gpu #(
             reg [DATA_MEM_DATA_BITS-1:0] core_lsu_write_data [THREADS_PER_BLOCK-1:0];
             reg [THREADS_PER_BLOCK-1:0] core_lsu_write_ready;
 
-            // Pass through signals between LSUs and data memory controller
-            genvar j;
-            for (j = 0; j < THREADS_PER_BLOCK; j = j + 1) begin
-                localparam lsu_index = i * THREADS_PER_BLOCK + j;
-                always @(posedge clk) begin 
-                    lsu_read_valid[lsu_index] <= core_lsu_read_valid[j];
-                    lsu_read_address[lsu_index] <= core_lsu_read_address[j];
+            // L1 Cache <> L2 Cache channels for this core
+            reg [L1_NUM_CHANNELS-1:0] core_l1_mem_read_valid;
+            reg [DATA_MEM_ADDR_BITS-1:0] core_l1_mem_read_address [L1_NUM_CHANNELS-1:0];
+            reg [L1_NUM_CHANNELS-1:0] core_l1_mem_read_ready;
+            reg [DATA_MEM_DATA_BITS-1:0] core_l1_mem_read_data [L1_NUM_CHANNELS-1:0];
+            reg [L1_NUM_CHANNELS-1:0] core_l1_mem_write_valid;
+            reg [DATA_MEM_ADDR_BITS-1:0] core_l1_mem_write_address [L1_NUM_CHANNELS-1:0];
+            reg [DATA_MEM_DATA_BITS-1:0] core_l1_mem_write_data [L1_NUM_CHANNELS-1:0];
+            reg [L1_NUM_CHANNELS-1:0] core_l1_mem_write_ready;
 
-                    lsu_write_valid[lsu_index] <= core_lsu_write_valid[j];
-                    lsu_write_address[lsu_index] <= core_lsu_write_address[j];
-                    lsu_write_data[lsu_index] <= core_lsu_write_data[j];
-                    
-                    core_lsu_read_ready[j] <= lsu_read_ready[lsu_index];
-                    core_lsu_read_data[j] <= lsu_read_data[lsu_index];
-                    core_lsu_write_ready[j] <= lsu_write_ready[lsu_index];
+            wire [31:0] core_l1_hit_count;
+            wire [31:0] core_l1_miss_count;
+
+            // Pass through signals between this core's L1 cache and the shared L2 cache
+            genvar k;
+            for (k = 0; k < L1_NUM_CHANNELS; k = k + 1) begin
+                localparam l1_channel_index = i * L1_NUM_CHANNELS + k;
+                always @(posedge clk) begin
+                    l1_mem_read_valid[l1_channel_index] <= core_l1_mem_read_valid[k];
+                    l1_mem_read_address[l1_channel_index] <= core_l1_mem_read_address[k];
+
+                    l1_mem_write_valid[l1_channel_index] <= core_l1_mem_write_valid[k];
+                    l1_mem_write_address[l1_channel_index] <= core_l1_mem_write_address[k];
+                    l1_mem_write_data[l1_channel_index] <= core_l1_mem_write_data[k];
+
+                    core_l1_mem_read_ready[k] <= l1_mem_read_ready[l1_channel_index];
+                    core_l1_mem_read_data[k] <= l1_mem_read_data[l1_channel_index];
+                    core_l1_mem_write_ready[k] <= l1_mem_write_ready[l1_channel_index];
                 end
             end
+
+            assign l1_hit_count[i] = core_l1_hit_count;
+            assign l1_miss_count[i] = core_l1_miss_count;
+
+            // L1 Cache (private to this core) - flushed whenever this core is handed a new block
+            cache #(
+                .ADDR_BITS(DATA_MEM_ADDR_BITS),
+                .DATA_BITS(DATA_MEM_DATA_BITS),
+                .NUM_CONSUMERS(THREADS_PER_BLOCK),
+                .NUM_CHANNELS(L1_NUM_CHANNELS),
+                .NUM_SETS(L1_NUM_SETS),
+                .WAYS(L1_WAYS),
+                .LINE_SIZE(L1_LINE_SIZE)
+            ) l1_cache_instance (
+                .clk(clk),
+                .reset(core_reset[i]),
+
+                .consumer_read_valid(core_lsu_read_valid),
+                .consumer_read_address(core_lsu_read_address),
+                .consumer_read_ready(core_lsu_read_ready),
+                .consumer_read_data(core_lsu_read_data),
+                .consumer_write_valid(core_lsu_write_valid),
+                .consumer_write_address(core_lsu_write_address),
+                .consumer_write_data(core_lsu_write_data),
+                .consumer_write_ready(core_lsu_write_ready),
+
+                .mem_read_valid(core_l1_mem_read_valid),
+                .mem_read_address(core_l1_mem_read_address),
+                .mem_read_ready(core_l1_mem_read_ready),
+                .mem_read_data(core_l1_mem_read_data),
+                .mem_write_valid(core_l1_mem_write_valid),
+                .mem_write_address(core_l1_mem_write_address),
+                .mem_write_data(core_l1_mem_write_data),
+                .mem_write_ready(core_l1_mem_write_ready),
+
+                .hit_count(core_l1_hit_count),
+                .miss_count(core_l1_miss_count)
+            );
 
             // Compute Core
             core #(
@@ -190,6 +306,7 @@ module gpu #(
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
                 .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS),
                 .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
+                .SHARED_MEM_ADDR_BITS(SHARED_MEM_ADDR_BITS),
             ) core_instance (
                 .clk(clk),
                 .reset(core_reset[i]),

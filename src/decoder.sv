@@ -22,6 +22,8 @@ module decoder (
     output reg decoded_reg_write_enable,           // Enable writing to a register
     output reg decoded_mem_read_enable,            // Enable reading from memory
     output reg decoded_mem_write_enable,           // Enable writing to memory
+    output reg decoded_shared_mem_read_enable,     // Enable reading from shared memory
+    output reg decoded_shared_mem_write_enable,    // Enable writing to shared memory
     output reg decoded_nzp_write_enable,           // Enable writing to NZP register
     output reg [1:0] decoded_reg_input_mux,        // Select input to register
     output reg [1:0] decoded_alu_arithmetic_mux,   // Select arithmetic operation
@@ -41,7 +43,15 @@ module decoder (
         LDR = 4'b0111,
         STR = 4'b1000,
         CONST = 4'b1001,
+        LDS = 4'b1010,
+        STS = 4'b1011,
         RET = 4'b1111;
+
+    // decoded_reg_input_mux values
+    localparam ARITHMETIC = 2'b00,
+        MEMORY = 2'b01,
+        CONSTANT = 2'b10,
+        SHARED_MEMORY = 2'b11;
 
     always @(posedge clk) begin 
         if (reset) begin 
@@ -53,13 +63,15 @@ module decoder (
             decoded_reg_write_enable <= 0;
             decoded_mem_read_enable <= 0;
             decoded_mem_write_enable <= 0;
+            decoded_shared_mem_read_enable <= 0;
+            decoded_shared_mem_write_enable <= 0;
             decoded_nzp_write_enable <= 0;
             decoded_reg_input_mux <= 0;
             decoded_alu_arithmetic_mux <= 0;
             decoded_alu_output_mux <= 0;
             decoded_pc_mux <= 0;
             decoded_ret <= 0;
-        end else begin 
+        end else begin
             // Decode when core_state = DECODE
             if (core_state == 3'b010) begin 
                 // Get instruction signals from instruction every time
@@ -117,14 +129,22 @@ module decoder (
                         decoded_reg_input_mux <= 2'b01;
                         decoded_mem_read_enable <= 1;
                     end
-                    STR: begin 
+                    STR: begin
                         decoded_mem_write_enable <= 1;
                     end
-                    CONST: begin 
+                    CONST: begin
                         decoded_reg_write_enable <= 1;
                         decoded_reg_input_mux <= 2'b10;
                     end
-                    RET: begin 
+                    LDS: begin
+                        decoded_reg_write_enable <= 1;
+                        decoded_reg_input_mux <= SHARED_MEMORY;
+                        decoded_shared_mem_read_enable <= 1;
+                    end
+                    STS: begin
+                        decoded_shared_mem_write_enable <= 1;
+                    end
+                    RET: begin
                         decoded_ret <= 1;
                     end
                 endcase
