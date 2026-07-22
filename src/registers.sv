@@ -67,18 +67,28 @@ module registers #(
             registers[13] <= 8'b0;              // %blockIdx
             registers[14] <= THREADS_PER_BLOCK; // %blockDim
             registers[15] <= THREAD_ID;         // %threadIdx
-        end else if (enable) begin 
-            // [Bad Solution] Shouldn't need to set this every cycle
-            registers[13] <= block_id; // Update the block_id when a new block is issued from dispatcher
-            
-            // Fill rs/rt when core_state = REQUEST
-            if (core_state == 3'b011) begin 
+        end else begin 
+            // OPTIMIZATION: Only latch block_id once, right as the core comes out of
+            // reset (core_state == IDLE), instead of writing it on every single cycle.
+            // block_id is stable by the time the core leaves reset (see dispatch.sv),
+            // and never changes again until the core is reset for its next block.
+            // NOTE: deliberately NOT gated on `enable` (= active_mask with branch
+            // divergence) - active_mask is only latched high starting FETCH, one cycle
+            // after IDLE, so gating this on `enable` would mean it never fires at all.
+            if (core_state == 3'b000) begin
+                registers[13] <= block_id; // Update the block_id when a new block is issued from dispatcher
+            end
+        end
+        if (!reset && enable) begin
+            // Fill rs/rt when core_state = DECODE (decoding is combinational - see decoder.sv -
+            // so decoded_rs_address/decoded_rt_address are already valid for the current instruction)
+            if (core_state == 3'b010) begin 
                 rs <= registers[decoded_rs_address];
                 rt <= registers[decoded_rt_address];
             end
 
             // Store rd when core_state = UPDATE
-            if (core_state == 3'b110) begin 
+            if (core_state == 3'b101) begin 
                 // Only allow writing to R0 - R12
                 if (decoded_reg_write_enable && decoded_rd_address < 13) begin
                     case (decoded_reg_input_mux)

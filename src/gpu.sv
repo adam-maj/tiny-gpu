@@ -65,12 +65,27 @@ module gpu #(
     reg [DATA_MEM_DATA_BITS-1:0] lsu_write_data [NUM_LSUS-1:0];
     reg [NUM_LSUS-1:0] lsu_write_ready;
 
-    // Fetcher <> Program Memory Controller Channels
+    // Fetcher <> ICache Channels
+    // > Each core's fetcher talks to its own dedicated instruction cache instead of
+    //   going straight to the program memory controller (see icache.sv)
     localparam NUM_FETCHERS = NUM_CORES;
     reg [NUM_FETCHERS-1:0] fetcher_read_valid;
     reg [PROGRAM_MEM_ADDR_BITS-1:0] fetcher_read_address [NUM_FETCHERS-1:0];
     reg [NUM_FETCHERS-1:0] fetcher_read_ready;
     reg [PROGRAM_MEM_DATA_BITS-1:0] fetcher_read_data [NUM_FETCHERS-1:0];
+
+    // ICache <> Program Memory Controller Channels (only trafficked on cache misses)
+    reg [NUM_FETCHERS-1:0] icache_mem_read_valid;
+    reg [PROGRAM_MEM_ADDR_BITS-1:0] icache_mem_read_address [NUM_FETCHERS-1:0];
+    reg [NUM_FETCHERS-1:0] icache_mem_read_ready;
+    reg [PROGRAM_MEM_DATA_BITS-1:0] icache_mem_read_data [NUM_FETCHERS-1:0];
+
+    // ICache stats, exposed for the live dashboard & tests
+    wire [NUM_FETCHERS-1:0] icache_hit;
+    wire [NUM_FETCHERS-1:0] icache_miss;
+
+    // Prefetch stats (basic pipelining), exposed for the live dashboard & tests
+    wire [NUM_CORES-1:0] core_prefetch_hit;
     
     // Device Control Register
     dcr dcr_instance (
@@ -122,16 +137,45 @@ module gpu #(
         .clk(clk),
         .reset(reset),
 
-        .consumer_read_valid(fetcher_read_valid),
-        .consumer_read_address(fetcher_read_address),
-        .consumer_read_ready(fetcher_read_ready),
-        .consumer_read_data(fetcher_read_data),
+        .consumer_read_valid(icache_mem_read_valid),
+        .consumer_read_address(icache_mem_read_address),
+        .consumer_read_ready(icache_mem_read_ready),
+        .consumer_read_data(icache_mem_read_data),
 
         .mem_read_valid(program_mem_read_valid),
         .mem_read_address(program_mem_read_address),
         .mem_read_ready(program_mem_read_ready),
         .mem_read_data(program_mem_read_data),
     );
+
+    // Instruction Caches (one per core, sitting between each fetcher and the
+    // shared program memory controller - see icache.sv)
+    genvar c;
+    generate
+        for (c = 0; c < NUM_FETCHERS; c = c + 1) begin : icaches
+            icache #(
+                .ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
+                .DATA_BITS(PROGRAM_MEM_DATA_BITS),
+                .CACHE_LINES(16)
+            ) icache_instance (
+                .clk(clk),
+                .reset(reset),
+
+                .consumer_read_valid(fetcher_read_valid[c]),
+                .consumer_read_address(fetcher_read_address[c]),
+                .consumer_read_ready(fetcher_read_ready[c]),
+                .consumer_read_data(fetcher_read_data[c]),
+
+                .mem_read_valid(icache_mem_read_valid[c]),
+                .mem_read_address(icache_mem_read_address[c]),
+                .mem_read_ready(icache_mem_read_ready[c]),
+                .mem_read_data(icache_mem_read_data[c]),
+
+                .hit(icache_hit[c]),
+                .miss(icache_miss[c])
+            );
+        end
+    endgenerate
 
     // Dispatcher
     dispatch #(
@@ -210,7 +254,8 @@ module gpu #(
                 .data_mem_write_valid(core_lsu_write_valid),
                 .data_mem_write_address(core_lsu_write_address),
                 .data_mem_write_data(core_lsu_write_data),
-                .data_mem_write_ready(core_lsu_write_ready)
+                .data_mem_write_ready(core_lsu_write_ready),
+                .prefetch_hit(core_prefetch_hit[i])
             );
         end
     endgenerate

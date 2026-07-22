@@ -1,6 +1,18 @@
 from typing import List, Optional
 from .logger import logger
 
+def _safe_int(value: str, base: int = 2) -> int:
+    """
+    Best-effort int parse for a VPI binary string. Treats any x/z bits as 0
+    instead of raising - signals can be transiently undefined (e.g. a thread
+    that isn't enabled this block, or a register read the same cycle it's
+    written) and this is purely debug/trace formatting, so it shouldn't ever
+    crash a whole (possibly long-running) test over one undefined bit.
+    """
+    if any(c not in "01" for c in value):
+        return 0
+    return int(value, base)
+
 def format_register(register: int) -> str:
     if register < 13:
         return f"R{register}"
@@ -13,13 +25,13 @@ def format_register(register: int) -> str:
     
 def format_instruction(instruction: str) -> str:
     opcode = instruction[0:4]
-    rd = format_register(int(instruction[4:8], 2))
-    rs = format_register(int(instruction[8:12], 2))
-    rt = format_register(int(instruction[12:16], 2))
+    rd = format_register(_safe_int(instruction[4:8]))
+    rs = format_register(_safe_int(instruction[8:12]))
+    rt = format_register(_safe_int(instruction[12:16]))
     n = "N" if instruction[4] == 1 else ""
     z = "Z" if instruction[5] == 1 else ""
     p = "P" if instruction[6] == 1 else ""
-    imm = f"#{int(instruction[8:16], 2)}"
+    imm = f"#{_safe_int(instruction[8:16])}"
 
     if opcode == "0000":
         return "NOP"
@@ -46,25 +58,28 @@ def format_instruction(instruction: str) -> str:
     return "UNKNOWN"
 
 def format_core_state(core_state: str) -> str:
+    # NOTE: DECODE now also covers what used to be a separate REQUEST cycle
+    # (decoding is combinational - see decoder.sv - so register operand reads
+    # happen in the same cycle as decode), and WAIT is only entered for LDR/STR.
     core_state_map = {
         "000": "IDLE",
         "001": "FETCH",
         "010": "DECODE",
-        "011": "REQUEST",
-        "100": "WAIT",
-        "101": "EXECUTE",
-        "110": "UPDATE",
-        "111": "DONE"
+        "011": "WAIT",
+        "100": "EXECUTE",
+        "101": "UPDATE",
+        "110": "DONE"
     }
-    return core_state_map[core_state]
+    return core_state_map.get(core_state, f"UNKNOWN({core_state})")
 
 def format_fetcher_state(fetcher_state: str) -> str:
     fetcher_state_map = {
         "000": "IDLE",
         "001": "FETCHING",
-        "010": "FETCHED"
+        "010": "FETCHED",
+        "011": "PREFETCHING"
     }
-    return fetcher_state_map[fetcher_state]
+    return fetcher_state_map.get(fetcher_state, f"UNKNOWN({fetcher_state})")
 
 def format_lsu_state(lsu_state: str) -> str:
     lsu_state_map = {
@@ -73,7 +88,7 @@ def format_lsu_state(lsu_state: str) -> str:
         "10": "WAITING",
         "11": "DONE"
     }
-    return lsu_state_map[lsu_state]
+    return lsu_state_map.get(lsu_state, f"UNKNOWN({lsu_state})")
 
 def format_memory_controller_state(controller_state: str) -> str:
     controller_state_map = {
@@ -83,12 +98,12 @@ def format_memory_controller_state(controller_state: str) -> str:
         "100": "READ_RELAYING",
         "101": "WRITE_RELAYING"
     }
-    return controller_state_map[controller_state]
+    return controller_state_map.get(controller_state, f"UNKNOWN({controller_state})")
 
 def format_registers(registers: List[str]) -> str:
     formatted_registers = []
     for i, reg_value in enumerate(registers):
-        decimal_value = int(reg_value, 2)  # Convert binary string to decimal
+        decimal_value = _safe_int(reg_value)  # Convert binary string to decimal
         reg_idx = 15 - i # Register data is provided in reverse order
         formatted_registers.append(f"{format_register(reg_idx)} = {decimal_value}")
     formatted_registers.reverse()
@@ -99,31 +114,31 @@ def format_cycle(dut, cycle_id: int, thread_id: Optional[int] = None):
 
     for core in dut.cores:
         # Not exactly accurate, but good enough for now
-        if int(str(dut.thread_count.value), 2) <= core.i.value * dut.THREADS_PER_BLOCK.value:
+        if _safe_int(str(dut.thread_count.value)) <= core.i.value * dut.THREADS_PER_BLOCK.value:
             continue
 
         logger.debug(f"\n+--------------------- Core {core.i.value} ---------------------+")
 
         instruction = str(core.core_instance.instruction.value)
         for thread in core.core_instance.threads:
-            if int(thread.i.value) < int(str(core.core_instance.thread_count.value), 2): # if enabled
+            if int(thread.i.value) < _safe_int(str(core.core_instance.thread_count.value)): # if enabled
                 block_idx = core.core_instance.block_id.value
                 block_dim = int(core.core_instance.THREADS_PER_BLOCK)
                 thread_idx = thread.register_instance.THREAD_ID.value
                 idx = block_idx * block_dim + thread_idx
 
-                rs = int(str(thread.register_instance.rs.value), 2)
-                rt = int(str(thread.register_instance.rt.value), 2)
+                rs = _safe_int(str(thread.register_instance.rs.value))
+                rt = _safe_int(str(thread.register_instance.rt.value))
 
-                reg_input_mux = int(str(core.core_instance.decoded_reg_input_mux.value), 2)
-                alu_out = int(str(thread.alu_instance.alu_out.value), 2)
-                lsu_out = int(str(thread.lsu_instance.lsu_out.value), 2)
-                constant = int(str(core.core_instance.decoded_immediate.value), 2)
+                reg_input_mux = _safe_int(str(core.core_instance.decoded_reg_input_mux.value))
+                alu_out = _safe_int(str(thread.alu_instance.alu_out.value))
+                lsu_out = _safe_int(str(thread.lsu_instance.lsu_out.value))
+                constant = _safe_int(str(core.core_instance.decoded_immediate.value))
 
                 if (thread_id is None or thread_id == idx):
                     logger.debug(f"\n+-------- Thread {idx} --------+")
 
-                    logger.debug("PC:", int(str(core.core_instance.current_pc.value), 2))
+                    logger.debug("PC:", _safe_int(str(core.core_instance.current_pc.value)))
                     logger.debug("Instruction:", format_instruction(instruction))
                     logger.debug("Core State:", format_core_state(str(core.core_instance.core_state.value)))
                     logger.debug("Fetcher State:", format_fetcher_state(str(core.core_instance.fetcher_state.value)))

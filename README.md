@@ -17,10 +17,15 @@ Built with <15 files of fully documented Verilog, complete documentation on arch
   - [Thread](#thread)
 - [Kernels](#kernels)
   - [Matrix Addition](#matrix-addition)
-  - [Matrix Multiplication](/tree/master?tab=readme-ov-file#matrix-multiplication)
+  - [Matrix Multiplication](#matrix-multiplication)
+  - [Graphics](#graphics)
 - [Simulation](#simulation)
+- [Live Dashboard](#live-dashboard)
+- [Tiny Tapeout](#tiny-tapeout)
+- [Implemented Optimizations](#implemented-optimizations)
 - [Advanced Functionality](#advanced-functionality)
 - [Next Steps](#next-steps)
+- [Changelog](CHANGELOG.md)
 
 # Overview
 
@@ -114,15 +119,13 @@ tiny-gpu program memory has the following specifications:
 
 Global memory has fixed read/write bandwidth, but there may be far more incoming requests across all cores to access data from memory than the external memory is actually able to handle.
 
-The memory controllers keep track of all the outgoing requests to memory from the compute cores, throttle requests based on actual external memory bandwidth, and relay responses from external memory back to the proper resources.
+The memory controllers keep track of all the outgoing requests to memory from the compute cores, throttle requests based on actual external memory bandwidth, and relay responses from external memory back to the proper resources. When multiple consumers request a **read of the same address** in one arbitration round, the controller **coalesces** them into a single external transaction and broadcasts the response.
 
 Each memory controller has a fixed number of channels based on the bandwidth of global memory.
 
-### Cache (WIP)
+### Instruction Cache
 
-The same data is often requested from global memory by multiple cores. Constantly access global memory repeatedly is expensive, and since the data has already been fetched once, it would be more efficient to store it on device in SRAM to be retrieved much quicker on later requests.
-
-This is exactly what the cache is used for. Data retrieved from external memory is stored in cache and can be retrieved from there on later requests, freeing up memory bandwidth to be used for new data.
+Each core's fetcher talks to a dedicated 16-line direct-mapped **instruction cache** (`src/icache.sv`) before the shared program-memory controller. Hits return the instruction without touching external program memory; misses fill the line and cost the same as an uncached fetch. Loop-heavy kernels (matmul) benefit the most — see `test/test_icache.py`.
 
 ## Core
 
@@ -134,11 +137,9 @@ In this simplified GPU, each core processed one **block** at a time, and for eac
 
 Each core has a single scheduler that manages the execution of threads.
 
-The tiny-gpu scheduler executes instructions for a single block to completion before picking up a new block, and it executes instructions for all threads in-sync and sequentially.
+The tiny-gpu scheduler executes instructions for a single block to completion before picking up a new block. With **branch divergence** support, each thread owns its own PC: each round the scheduler picks the lowest PC among unfinished threads, latches an `active_mask` of threads at that PC, and only those threads execute the fetched instruction. Diverged threads reconverge naturally when their PCs meet again.
 
-In more advanced schedulers, techniques like **pipelining** are used to stream the execution of multiple instructions subsequent instructions to maximize resource utilization before previous instructions are fully complete. Additionally, **warp scheduling** can be use to execute multiple batches of threads within a block in parallel.
-
-The main constraint the scheduler has to work around is the latency associated with loading & storing data from global memory. While most instructions can be executed synchronously, these load-store operations are asynchronous, meaning the rest of the instruction execution has to be built around these long wait times.
+Non-memory instructions skip the WAIT state entirely, and decoding is combinational so DECODE also covers what used to be a separate REQUEST cycle. The fetcher additionally **speculatively prefetches PC+1** during WAIT/EXECUTE/UPDATE (basic pipelining).
 
 ### Fetcher
 
@@ -174,9 +175,7 @@ By default, the PC increments by 1 after every instruction.
 
 With the `BRnzp` instruction, the NZP register checks to see if the NZP register (set by a previous `CMP` instruction) matches some case - and if it does, it will branch to a specific line of program memory. _This is how loops and conditionals are implemented._
 
-Since threads are processed in parallel, tiny-gpu assumes that all threads "converge" to the same program counter after each instruction - which is a naive assumption for the sake of simplicity.
-
-In real GPUs, individual threads can branch to different PCs, causing **branch divergence** where a group of threads threads initially being processed together has to split out into separate execution.
+Each thread owns its own PC and NZP flags, so divergent `BRnzp` outcomes are handled correctly — inactive threads simply sit out rounds until the scheduler picks their PC.
 
 # ISA
 
@@ -311,82 +310,91 @@ STR R9, R8                     ; store C[i] in global memory
 RET                            ; end of kernel
 ```
 
+### Graphics
+
+The graphics kernel (`kernels/graphics.asm`, `test/test_graphics.py`) treats data memory as a 16×15 grayscale framebuffer. Each of 240 threads paints one pixel: a filled circle via squared distance from center, using a divergent `CMP`/`BRn` path for inside vs outside intensity. Open it in the live dashboard (`make gui_graphics`) to watch the framebuffer fill in.
+
 # Simulation
 
-tiny-gpu is setup to simulate the execution of both of the above kernels. Before simulating, you'll need to install [iverilog](https://steveicarus.github.io/iverilog/usage/installation.html) and [cocotb](https://docs.cocotb.org/en/stable/install.html):
+### Quick setup (no sudo)
 
-- Install Verilog compilers with `brew install icarus-verilog` and `pip3 install cocotb`
-- Download the latest version of sv2v from https://github.com/zachjs/sv2v/releases, unzip it and put the binary in $PATH.
-- Run `mkdir build` in the root directory of this repository.
+```bash
+bash scripts/setup.sh   # downloads iverilog + sv2v into .tools/, creates .venv
+source scripts/env.sh
+make test_all           # matadd, matmul, divergence, coalescing, icache, graphics, TT adapter
+```
 
-Once you've installed the pre-requisites, you can run the kernel simulations with `make test_matadd` and `make test_matmul`.
+Or install [iverilog](https://steveicarus.github.io/iverilog/usage/installation.html), [sv2v](https://github.com/zachjs/sv2v/releases), and `pip install -r requirements.txt` (pins **cocotb 1.9.2**), then `mkdir -p build`.
 
-Executing the simulations will output a log file in `test/logs` with the initial data memory state, complete execution trace of the kernel, and final data memory state.
-
-If you look at the initial data memory state logged at the start of the logfile for each, you should see the two start matrices for the calculation, and in the final data memory at the end of the file you should also see the resultant matrix.
-
-Below is a sample of the execution traces, showing on each cycle the execution of every thread within every core, including the current instruction, PC, register values, states, etc.
+Individual kernels: `make test_matadd`, `make test_matmul`, etc. Each run writes a text execution trace under `test/logs/`.
 
 ![execution trace](docs/images/trace.png)
 
-**For anyone trying to run the simulation or play with this repo, please feel free to DM me on [twitter](https://twitter.com/majmudaradam) if you run into any issues - I want you to get this running!**
+# Live Dashboard
+
+```bash
+source scripts/env.sh
+make gui_matadd      # or gui_matmul / gui_graphics
+```
+
+Opens a browser dashboard at [http://localhost:8080](http://localhost:8080) that streams per-cycle core/pipeline state, thread registers & active masks, i-cache activity, and a data-memory heatmap (framebuffer view for graphics). Pause / step / speed controls talk back to the simulator. Runs also save `build/traces/<kernel>.jsonl` for offline replay:
+
+```bash
+.venv/bin/python sim/server.py --replay build/traces/graphics.jsonl
+```
+
+See [docs/gui.md](docs/gui.md) for the WebSocket/TCP protocol.
+
+# Tiny Tapeout
+
+`src/tt/tt_um_tiny_gpu.sv` wraps a minimal GPU (1 core, 4 threads, 1 data channel) behind the Tiny Tapeout 7 pinout with a byte-serial memory/control protocol. Simulation-only scaffolding — see [docs/tiny_tapeout.md](docs/tiny_tapeout.md) and `make test_tt`.
+
+# Implemented Optimizations
+
+| Feature | Where | Effect (vs original 178 / 491 cycle baselines) |
+|---|---|---|
+| Control-flow fold (skip WAIT, combinational DECODE) | `scheduler.sv`, `decoder.sv`, `registers.sv` | Fewer cycles per ALU/branch/const op |
+| Instruction cache | `icache.sv` | Loop-heavy fetches hit without program-mem traffic |
+| Same-address read coalescing | `controller.sv` | Shared loads share one external transaction |
+| Branch divergence | `scheduler.sv`, `pc.sv` | Correct divergent `BRnzp`; natural reconverge |
+| Speculative PC+1 prefetch | `fetcher.sv` | Hides fetch latency on straight-line code |
+
+Final measured cycles: **matadd 115**, **matmul 256** (see [CHANGELOG.md](CHANGELOG.md)).
 
 # Advanced Functionality
 
-For the sake of simplicity, there were many additional features implemented in modern GPUs that heavily improve performance & functionality that tiny-gpu omits. We'll discuss some of those most critical features in this section.
+Some production-GPU features are still out of scope for this teaching design:
 
 ### Multi-layered Cache & Shared Memory
 
-In modern GPUs, multiple different levels of caches are used to minimize the amount of data that needs to get accessed from global memory. tiny-gpu implements only one cache layer between individual compute units requesting memory and the memory controllers which stores recent cached data.
-
-Implementing multi-layered caches allows frequently accessed data to be cached more locally to where it's being used (with some caches within individual compute cores), minimizing load times for this data.
-
-Different caching algorithms are used to maximize cache-hits - this is a critical dimension that can be improved on to optimize memory access.
-
-Additionally, GPUs often use **shared memory** for threads within the same block to access a single memory space that can be used to share results with other threads.
-
-### Memory Coalescing
-
-Another critical memory optimization used by GPUs is **memory coalescing.** Multiple threads running in parallel often need to access sequential addresses in memory (for example, a group of threads accessing neighboring elements in a matrix) - but each of these memory requests is put in separately.
-
-Memory coalescing is used to analyzing queued memory requests and combine neighboring requests into a single transaction, minimizing time spent on addressing, and making all the requests together.
-
-### Pipelining
-
-In the control flow for tiny-gpu, cores wait for one instruction to be executed on a group of threads before starting execution of the next instruction.
-
-Modern GPUs use **pipelining** to stream execution of multiple sequential instructions at once while ensuring that instructions with dependencies on each other still get executed sequentially.
-
-This helps to maximize resource utilization within cores as resources are not sitting idle while waiting (ex: during async memory requests).
+tiny-gpu now has a per-core instruction cache, but no data cache hierarchy and no block-local shared memory. Those remain the next memory-system steps.
 
 ### Warp Scheduling
 
-Another strategy used to maximize resource utilization on course is **warp scheduling.** This approach involves breaking up blocks into individual batches of theads that can be executed together.
-
-Multiple warps can be executed on a single core simultaneously by executing instructions from one warp while another warp is waiting. This is similar to pipelining, but dealing with instructions from different threads.
-
-### Branch Divergence
-
-tiny-gpu assumes that all threads in a single batch end up on the same PC after each instruction, meaning that threads can be executed in parallel for their entire lifetime.
-
-In reality, individual threads could diverge from each other and branch to different lines based on their data. With different PCs, these threads would need to split into separate lines of execution, which requires managing diverging threads & paying attention to when threads converge again.
+Breaking blocks into warps that interleave on one core while another waits on memory is not implemented — the current scheduler still runs one PC group at a time per core.
 
 ### Synchronization & Barriers
 
-Another core functionality of modern GPUs is the ability to set **barriers** so that groups of threads in a block can synchronize and wait until all other threads in the same block have gotten to a certain point before continuing execution.
-
-This is useful for cases where threads need to exchange shared data with each other so they can ensure that the data has been fully processed.
+There is no `__syncthreads`-style barrier; threads only "meet" by natural PC reconvergence after divergence.
 
 # Next Steps
 
-Updates I want to make in the future to improve the design, anyone else is welcome to contribute as well:
+Completed from the original roadmap:
 
-- [ ] Add a simple cache for instructions
-- [ ] Build an adapter to use GPU with Tiny Tapeout 7
-- [ ] Add basic branch divergence
-- [ ] Add basic memory coalescing
-- [ ] Add basic pipelining
-- [ ] Optimize control flow and use of registers to improve cycle time
-- [ ] Write a basic graphics kernel or add simple graphics hardware to demonstrate graphics functionality
+- [x] Add a simple cache for instructions
+- [x] Build an adapter to use GPU with Tiny Tapeout 7
+- [x] Add basic branch divergence
+- [x] Add basic memory coalescing
+- [x] Add basic pipelining
+- [x] Optimize control flow and use of registers to improve cycle time
+- [x] Write a basic graphics kernel
+
+Still interesting follow-ups:
+
+- [ ] Data cache / shared memory
+- [ ] Warp scheduling
+- [ ] Deeper (multi-stage) instruction pipelining
+- [ ] Native desktop (PyQt) dashboard reusing the same JSON snapshot protocol
+- [ ] OpenLane / TT tapeout hardening beyond sim-only scaffolding
 
 **For anyone curious to play around or make a contribution, feel free to put up a PR with any improvements you'd like to add 😄**

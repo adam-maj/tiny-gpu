@@ -5,6 +5,9 @@
 // > Handles processing 1 block at a time
 // > The core also has it's own scheduler to manage control flow
 // > Each core contains 1 fetcher & decoder, and register files, ALUs, LSUs, PC for each thread
+// > OPTIMIZATION (branch divergence): each thread owns its own PC (pc.sv) instead of
+//   sharing one; `active_mask` (computed by the scheduler) gates which threads
+//   actually execute the instruction fetched this round - see scheduler.sv.
 module core #(
     parameter DATA_MEM_ADDR_BITS = 8,
     parameter DATA_MEM_DATA_BITS = 8,
@@ -37,7 +40,11 @@ module core #(
     output reg [THREADS_PER_BLOCK-1:0] data_mem_write_valid,
     output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_BLOCK-1:0],
     output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_BLOCK-1:0],
-    input reg [THREADS_PER_BLOCK-1:0] data_mem_write_ready
+    input reg [THREADS_PER_BLOCK-1:0] data_mem_write_ready,
+
+    // Stats - pulses high for 1 cycle whenever a round's fetch was served instantly
+    // from the speculative prefetch buffer (see fetcher.sv). Exposed for the dashboard.
+    output wire prefetch_hit
 );
     // State
     reg [2:0] core_state;
@@ -45,8 +52,10 @@ module core #(
     reg [15:0] instruction;
 
     // Intermediate Signals
-    reg [7:0] current_pc;
-    wire [7:0] next_pc[THREADS_PER_BLOCK-1:0];
+    reg [7:0] current_pc; // The single PC being fetched/executed by the core this round
+    wire [7:0] thread_pc[THREADS_PER_BLOCK-1:0]; // Each thread's own PC (see pc.sv)
+    wire [THREADS_PER_BLOCK-1:0] thread_enable_mask; // Which threads exist in this block at all
+    wire [THREADS_PER_BLOCK-1:0] active_mask; // Which threads execute the instruction fetched this round
     reg [7:0] rs[THREADS_PER_BLOCK-1:0];
     reg [7:0] rt[THREADS_PER_BLOCK-1:0];
     reg [1:0] lsu_state[THREADS_PER_BLOCK-1:0];
@@ -71,6 +80,15 @@ module core #(
     reg decoded_pc_mux;                     // Select source of next PC
     reg decoded_ret;
 
+    genvar i;
+
+    // Which threads exist at all in this block (independent of divergence)
+    generate
+        for (i = 0; i < THREADS_PER_BLOCK; i = i + 1) begin : thread_enable
+            assign thread_enable_mask[i] = (i < thread_count);
+        end
+    endgenerate
+
     // Fetcher
     fetcher #(
         .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
@@ -85,14 +103,13 @@ module core #(
         .mem_read_ready(program_mem_read_ready),
         .mem_read_data(program_mem_read_data),
         .fetcher_state(fetcher_state),
-        .instruction(instruction) 
+        .instruction(instruction),
+        .prefetch_hit(prefetch_hit)
     );
 
     // Decoder
+    // OPTIMIZATION: Purely combinational - see decoder.sv for details.
     decoder decoder_instance (
-        .clk(clk),
-        .reset(reset),
-        .core_state(core_state),
         .instruction(instruction),
         .decoded_rd_address(decoded_rd_address),
         .decoded_rs_address(decoded_rs_address),
@@ -111,6 +128,7 @@ module core #(
     );
 
     // Scheduler
+    // OPTIMIZATION: Also computes `active_mask` for basic branch divergence - see scheduler.sv.
     scheduler #(
         .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
     ) scheduler_instance (
@@ -123,20 +141,21 @@ module core #(
         .decoded_mem_write_enable(decoded_mem_write_enable),
         .decoded_ret(decoded_ret),
         .lsu_state(lsu_state),
+        .thread_pc(thread_pc),
+        .thread_enable_mask(thread_enable_mask),
+        .active_mask(active_mask),
         .current_pc(current_pc),
-        .next_pc(next_pc),
         .done(done)
     );
 
     // Dedicated ALU, LSU, registers, & PC unit for each thread this core has capacity for
-    genvar i;
     generate
         for (i = 0; i < THREADS_PER_BLOCK; i = i + 1) begin : threads
             // ALU
             alu alu_instance (
                 .clk(clk),
                 .reset(reset),
-                .enable(i < thread_count),
+                .enable(active_mask[i]),
                 .core_state(core_state),
                 .decoded_alu_arithmetic_mux(decoded_alu_arithmetic_mux),
                 .decoded_alu_output_mux(decoded_alu_output_mux),
@@ -149,7 +168,7 @@ module core #(
             lsu lsu_instance (
                 .clk(clk),
                 .reset(reset),
-                .enable(i < thread_count),
+                .enable(active_mask[i]),
                 .core_state(core_state),
                 .decoded_mem_read_enable(decoded_mem_read_enable),
                 .decoded_mem_write_enable(decoded_mem_write_enable),
@@ -175,7 +194,7 @@ module core #(
             ) register_instance (
                 .clk(clk),
                 .reset(reset),
-                .enable(i < thread_count),
+                .enable(active_mask[i]),
                 .block_id(block_id),
                 .core_state(core_state),
                 .decoded_reg_write_enable(decoded_reg_write_enable),
@@ -190,22 +209,21 @@ module core #(
                 .rt(rt[i])
             );
 
-            // Program Counter
+            // Program Counter - now owns its own PC register (see pc.sv)
             pc #(
                 .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS)
             ) pc_instance (
                 .clk(clk),
                 .reset(reset),
-                .enable(i < thread_count),
+                .enable(active_mask[i]),
                 .core_state(core_state),
                 .decoded_nzp(decoded_nzp),
                 .decoded_immediate(decoded_immediate),
                 .decoded_nzp_write_enable(decoded_nzp_write_enable),
                 .decoded_pc_mux(decoded_pc_mux),
                 .alu_out(alu_out[i]),
-                .current_pc(current_pc),
-                .next_pc(next_pc[i])
+                .current_pc(thread_pc[i])
             );
         end
     endgenerate

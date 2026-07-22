@@ -1,0 +1,61 @@
+# Tiny Tapeout project info stub for the tiny-gpu adapter.
+# This documents the pinout/config for a future submission; it has not been
+# run through the real tt-support-tools / OpenLane hardening flow yet (see
+# docs/tiny_tapeout.md).
+project:
+  title: "tiny-gpu"
+  author: "tiny-gpu contributors"
+  discord: ""
+  description: "Minimal (1 core / 4 threads) tiny-gpu accelerator behind a byte-serial command protocol"
+  language: "SystemVerilog"
+  clock_hz: 1000000
+
+  # How many tiles this design occupies (set once a real hardening run is done)
+  tiles: "1x1"
+
+  source_files:
+    - "tt_um_tiny_gpu.sv"
+    - "../alu.sv"
+    - "../controller.sv"
+    - "../core.sv"
+    - "../dcr.sv"
+    - "../decoder.sv"
+    - "../dispatch.sv"
+    - "../fetcher.sv"
+    - "../gpu.sv"
+    - "../icache.sv"
+    - "../lsu.sv"
+    - "../pc.sv"
+    - "../registers.sv"
+    - "../scheduler.sv"
+  top_module: "tt_um_tiny_gpu"
+
+# See docs/tiny_tapeout.md for the full pin protocol reference.
+pinout:
+  ui:
+    - "cmd/payload byte[0]"
+    - "cmd/payload byte[1]"
+    - "cmd/payload byte[2]"
+    - "cmd/payload byte[3]"
+    - "cmd/payload byte[4]"
+    - "cmd/payload byte[5]"
+    - "cmd/payload byte[6]"
+    - "cmd/payload byte[7]"
+  uo:
+    - "response byte[0]"
+    - "response byte[1]"
+    - "response byte[2]"
+    - "response byte[3]"
+    - "response byte[4]"
+    - "response byte[5]"
+    - "response byte[6]"
+    - "response byte[7]"
+  uio:
+    - "device_ready (out)"
+    - "host_valid (in)"
+    - "device_valid (out)"
+    - "host_ready (in)"
+    - "unused"
+    - "unused"
+    - "unused"
+    - "unused"

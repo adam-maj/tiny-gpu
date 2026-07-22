@@ -4,6 +4,7 @@ from .helpers.setup import setup
 from .helpers.memory import Memory
 from .helpers.format import format_cycle
 from .helpers.logger import logger
+from .helpers.streaming import SimStreamer
 
 @cocotb.test()
 async def test_matadd(dut):
@@ -46,6 +47,7 @@ async def test_matadd(dut):
 
     data_memory.display(24)
 
+    streamer = SimStreamer("matadd")
     cycles = 0
     while dut.done.value != 1:
         data_memory.run()
@@ -53,9 +55,11 @@ async def test_matadd(dut):
 
         await cocotb.triggers.ReadOnly()
         format_cycle(dut, cycles)
-        
+        await streamer.tick(dut, cycles, data_memory=data_memory, program_memory=program_memory)
+
         await RisingEdge(dut.clk)
         cycles += 1
+    streamer.close()
 
     logger.info(f"Completed in {cycles} cycles")
     data_memory.display(24)

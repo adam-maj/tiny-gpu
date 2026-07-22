@@ -10,6 +10,15 @@ class Memory:
         self.channels = channels
         self.name = name
 
+        # Counts every cycle a channel actually issues a *new* read/write request to
+        # this external memory (i.e. every real transaction, post-coalescing/caching).
+        # Used to measure the effect of controller.sv's memory coalescing and
+        # icache.sv's cache hits - see test/test_coalescing.py and test/test_icache.py.
+        self.read_transactions = 0
+        self.write_transactions = 0
+        self._prev_read_valid = [0] * channels
+        self._prev_write_valid = [0] * channels
+
         self.mem_read_valid = getattr(dut, f"{name}_mem_read_valid")
         self.mem_read_address = getattr(dut, f"{name}_mem_read_address")
         self.mem_read_ready = getattr(dut, f"{name}_mem_read_ready")
@@ -38,8 +47,13 @@ class Memory:
             if mem_read_valid[i] == 1:
                 mem_read_data[i] = self.memory[mem_read_address[i]]
                 mem_read_ready[i] = 1
+                # Count a transaction the moment this channel's request goes valid
+                # (rising edge), not every cycle it's held high while relaying.
+                if not self._prev_read_valid[i]:
+                    self.read_transactions += 1
             else:
                 mem_read_ready[i] = 0
+            self._prev_read_valid[i] = mem_read_valid[i]
 
         self.mem_read_data.value = int(''.join(format(d, '0' + str(self.data_bits) + 'b') for d in mem_read_data), 2)
         self.mem_read_ready.value = int(''.join(format(r, '01b') for r in mem_read_ready), 2)
@@ -63,8 +77,11 @@ class Memory:
                 if mem_write_valid[i] == 1:
                     self.memory[mem_write_address[i]] = mem_write_data[i]
                     mem_write_ready[i] = 1
+                    if not self._prev_write_valid[i]:
+                        self.write_transactions += 1
                 else:
                     mem_write_ready[i] = 0
+                self._prev_write_valid[i] = mem_write_valid[i]
 
             self.mem_write_ready.value = int(''.join(format(w, '01b') for w in mem_write_ready), 2)
 

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>tiny-gpu · live dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">&#9642;&#9642;&#9642;</span>
+      <div>
+        <h1>tiny-gpu <span class="dim">dashboard</span></h1>
+        <div class="subtitle" id="kernel-name">no kernel connected</div>
+      </div>
+    </div>
+
+    <div class="status-cluster">
+      <div class="stat"><label>mode</label><span id="mode-badge" class="badge">–</span></div>
+      <div class="stat"><label>cycle</label><span id="cycle-count">0</span></div>
+      <div class="stat"><label>conn</label><span id="conn-dot" class="dot dot-off"></span></div>
+    </div>
+  </header>
+
+  <section id="controls">
+    <button id="btn-back" title="Step back (replay only)">&#9198;</button>
+    <button id="btn-play" title="Play/Pause">&#9654;</button>
+    <button id="btn-step" title="Step one cycle">&#9197;</button>
+    <button id="btn-restart" class="btn-wide" title="Restart simulation from the beginning">&#8635; Restart</button>
+    <label class="speed-label">speed
+      <input id="speed-slider" type="range" min="0" max="200" value="80" />
+    </label>
+    <div id="scrub-wrap" class="scrub-wrap hidden">
+      <input id="scrub-bar" type="range" min="0" max="0" value="0" />
+      <span id="scrub-label">0 / 0</span>
+    </div>
+    <label class="auto-follow">
+      <input id="auto-follow" type="checkbox" checked /> auto-follow live
+    </label>
+  </section>
+
+  <main id="main-grid">
+    <section id="cores-panel" class="panel">
+      <h2>Cores &amp; Pipeline</h2>
+      <div id="cores-container"></div>
+    </section>
+
+    <aside id="side-panel">
+      <section class="panel">
+        <h2>Data Memory <span class="dim">(doubles as framebuffer)</span></h2>
+        <canvas id="mem-canvas" width="256" height="256"></canvas>
+        <div id="mem-legend" class="dim small"></div>
+      </section>
+
+      <section class="panel">
+        <h2>What's happening</h2>
+        <div id="narration"></div>
+      </section>
+    </aside>
+  </main>
+
+  <footer id="footer">
+    <details>
+      <summary>About &amp; future plans</summary>
+      <p>
+        This dashboard streams a cycle-accurate view of the tiny-gpu RTL simulation
+        (cocotb + Icarus Verilog) over a WebSocket, or replays a saved
+        <code>.jsonl</code> trace. Every value shown - core/fetcher states, per-thread
+        PCs/registers/active-mask, i-cache hit/miss, and the full data memory - is read
+        directly from simulator signals each cycle, not reconstructed after the fact.
+      </p>
+      <p>
+        <strong>Planned desktop version:</strong> a native (PyQt/Qt) build reusing the
+        same JSON snapshot protocol and <code>test/helpers/snapshot.py</code> extraction
+        layer, adding waveform-style scrubbing across the whole run, multi-kernel
+        side-by-side comparison, and export to VCD/GTKWave for deeper signal debugging.
+        See <code>CHANGELOG.md</code> for status.
+      </p>
+    </details>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

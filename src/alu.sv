@@ -33,10 +33,28 @@ module alu (
             alu_out_reg <= 8'b0;
         end else if (enable) begin
             // Calculate alu_out when core_state = EXECUTE
-            if (core_state == 3'b101) begin 
+            if (core_state == 3'b100) begin 
                 if (decoded_alu_output_mux == 1) begin 
-                    // Set values to compare with NZP register in alu_out[2:0]
-                    alu_out_reg <= {5'b0, (rs - rt > 0), (rs - rt == 0), (rs - rt < 0)};
+                    // Set values to compare with NZP register in alu_out[2:0]:
+                    // alu_out[2] = P (rs > rt), alu_out[1] = Z (rs == rt), alu_out[0] = N (rs < rt)
+                    //
+                    // NOTE: P and Z are both derived from the *subtraction* `rs - rt`, which is
+                    // plain unsigned arithmetic on these 8-bit registers - `rs - rt > 0` is
+                    // therefore also (incorrectly) true whenever rs < rt, since that case wraps
+                    // around to a large positive unsigned value instead of going negative. This
+                    // is a pre-existing quirk of the original design (rs, rt are never declared
+                    // `signed`) that every existing kernel's loop/branch conditions already work
+                    // around by only ever testing for equality (Z) or "not yet equal" (P, used
+                    // as a "not done" signal - see e.g. matmul's loop bound check) rather than a
+                    // genuine direction of inequality.
+                    //
+                    // N is fixed below to use a real unsigned comparator (`rs < rt`) instead of
+                    // re-deriving it from the same subtraction (which can never be "negative" on
+                    // unsigned operands, making the original `rs - rt < 0` dead code - always 0).
+                    // This is purely additive: N was never 1 before this fix, so nothing that
+                    // already existed could have depended on its value - see test_graphics.py for
+                    // a kernel that uses the newly-reliable N flag for a real "less than" branch.
+                    alu_out_reg <= {5'b0, (rs - rt > 0), (rs - rt == 0), (rs < rt)};
                 end else begin 
                     // Execute the specified arithmetic instruction
                     case (decoded_alu_arithmetic_mux)
