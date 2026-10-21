@@ -49,7 +49,7 @@ With this motivation in mind, we can simplify GPUs by cutting out the majority o
 This project is primarily focused on exploring:
 
 1. **Architecture** - What does the architecture of a GPU look like? What are the most important elements?
-2. **Parallelization** - How is the SIMD progamming model implemented in hardware?
+2. **Parallelization** - How is the SIMD programming model implemented in hardware?
 3. **Memory** - How does a GPU work around the constraints of limited memory bandwidth?
 
 After understanding the fundamentals laid out in this project, you can checkout the [advanced functionality section](#advanced-functionality) to understand some of the most important optimizations made in production grade GPUs (that are more challenging to implement) which improve performance.
